@@ -1,0 +1,680 @@
+<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#b3261e"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%23140d0c%22/%3E%3Cg fill=%22%23ff3b2b%22%3E%3Ccircle cx=%228%22 cy=%2210%22 r=%222.4%22/%3E%3Ccircle cx=%2216%22 cy=%2210%22 r=%222.4%22/%3E%3Ccircle cx=%2224%22 cy=%2210%22 r=%222.4%22/%3E%3Ccircle cx=%228%22 cy=%2218%22 r=%222.4%22/%3E%3Ccircle cx=%2216%22 cy=%2218%22 r=%222.4%22/%3E%3Ccircle cx=%2224%22 cy=%2218%22 r=%222.4%22/%3E%3C/g%3E%3C/svg%3E"><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script>window.FB_CFG={apiKey:"AIzaSyAKegGGjA1HR6Lk7pg_k1E985PMcG8nWNU",authDomain:"atolye-led-pano.firebaseapp.com",databaseURL:"https://atolye-led-pano-default-rtdb.europe-west1.firebasedatabase.app",projectId:"atolye-led-pano",storageBucket:"atolye-led-pano.firebasestorage.app",messagingSenderId:"840748612303",appId:"1:840748612303:web:c9ea776400c30fa27f15ba"};</script><title>Atölye Duyuru Panosu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+body{margin:0}
+/* Layout: kontrol paneli — üstte canlı LED önizleme bandı, altında sekmeli ayar alanı */
+:root{
+  --bg:#f3f2ef; --surface:#ffffff; --line:#dcd8d2; --fg:#211d1b; --muted:#6b645e;
+  --accent:#b3261e; --accent-soft:#fbe9e7; --ok:#2e7d4f; --warn:#a86a00; --bad:#b3261e;
+  --led-bg:#140d0c;
+  --f-display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --f-body:"Barlow","Segoe UI",Arial,sans-serif;
+  --f-mono:"JetBrains Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#171413; --surface:#211d1b; --line:#3a3330; --fg:#efe9e4; --muted:#a59c95;
+  --accent:#ff6b5e; --accent-soft:#3a1d1a; --ok:#6fcf97; --warn:#e8b04a; --bad:#ff6b5e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#171413; --surface:#211d1b; --line:#3a3330; --fg:#efe9e4; --muted:#a59c95;
+  --accent:#ff6b5e; --accent-soft:#3a1d1a; --ok:#6fcf97; --warn:#e8b04a; --bad:#ff6b5e; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px}
+h1{font-family:var(--f-display);font-size:28px;margin:0;letter-spacing:.3px;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px}
+.note{background:var(--accent-soft);border-left:3px solid var(--accent);padding:8px 12px;font-size:13px;border-radius:4px}
+.note.dev{background:transparent;border-left-color:var(--ok)}
+.preview{background:var(--led-bg);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.preview canvas{width:100%;display:block;image-rendering:pixelated}
+.pmeta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:#d9c9c4;font-size:12.5px;font-family:var(--f-mono)}
+.pill{padding:2px 9px;border-radius:99px;font-size:11.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;font-family:var(--f-body)}
+.l1{background:#ff3b2b;color:#fff}.l2{background:#e8b04a;color:#1b1200}.l3{background:#6fa8dc;color:#08131e}.l4{background:#4a403d;color:#eee}.l0{background:#2a2523;color:#bbb}
+nav{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line)}
+nav button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font:600 14.5px var(--f-body);color:var(--muted);cursor:pointer;white-space:nowrap}
+nav button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+nav button:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+section.tab{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+h2{font-family:var(--f-display);font-size:20px;margin:0}
+label{font-size:12.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:flex;flex-direction:column;gap:4px}
+label.chk{flex-direction:row;align-items:center;gap:8px;text-transform:none;font-size:14px;color:var(--fg);font-weight:500;letter-spacing:0}
+label.chk input{width:auto}
+input,select,textarea{font:15px var(--f-body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%}
+textarea{resize:vertical;min-height:70px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.row>*{flex:1 1 140px;min-width:0}
+.btn{font:600 14.5px var(--f-body);border-radius:6px;padding:9px 16px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;flex:0 0 auto}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.small{padding:4px 10px;font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:13px;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--bg);cursor:pointer;color:var(--fg)}
+.active-ann{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border:1px dashed var(--accent);border-radius:6px;padding:10px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:6px;border-bottom:1px solid var(--line)}
+td{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+td input,td select{padding:5px 7px;font-size:14px}
+td.t input{font-family:var(--f-mono);width:92px}
+td.n input{width:64px}
+tr.today td{background:var(--accent-soft)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted);font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 16px}
+.stat{display:flex;gap:8px;align-items:baseline;min-width:0}
+.stat b{font-weight:600;color:var(--muted);font-size:12.5px;text-transform:uppercase;letter-spacing:.4px;flex:0 0 auto}
+.stat span{min-width:0;overflow-wrap:anywhere}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;flex:0 0 auto;align-self:center}
+.dot.on{background:var(--ok)}.dot.off{background:var(--bad)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:6px;font-size:14px;z-index:5}
+.saved{font-size:12.5px;color:var(--muted)}
+.login{position:fixed;inset:0;background:var(--bg);z-index:10;display:flex;align-items:center;justify-content:center;padding:16px}
+.login form{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:22px;width:100%;max-width:380px;display:flex;flex-direction:column;gap:12px}
+.login .err{color:var(--bad);font-size:13.5px;min-height:1.2em;margin:0}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Atölye Duyuru Panosu</h1>
+    <span class="sub">Ereğli MTAL · Elektrik-Elektronik Teknolojisi Alanı</span>
+    <button class="btn small" id="logoutBtn" hidden>Çıkış</button>
+  </header>
+  <div class="login" id="login" hidden>
+    <form id="loginForm">
+      <h1>Atölye Duyuru Panosu</h1>
+      <p class="muted" style="margin:0">Uzaktan kontrol için giriş yap.</p>
+      <label>E-posta<input type="email" id="lEmail" autocomplete="username" required></label>
+      <label>Şifre<input type="password" id="lPass" autocomplete="current-password" required></label>
+      <p class="err" id="lErr"></p>
+      <button class="btn primary" type="submit" id="lBtn">Giriş yap</button>
+    </form>
+  </div>
+  <div class="note" id="modeNote">Demo modu: bu sayfa bir panele bağlı değil. Değişiklikler sadece bu tarayıcıda saklanır, önizleme gerçek saatle çalışır.</div>
+
+  <div class="preview" aria-label="Panel önizlemesi">
+    <canvas id="led" height="64"></canvas>
+    <div class="pmeta"><span id="layerPill" class="pill l4">Döngü</span><span id="layerTxt"></span><span style="margin-left:auto" id="clock"></span></div>
+  </div>
+
+  <nav role="tablist">
+    <button role="tab" data-tab="ann" aria-selected="true">Anlık Duyuru</button>
+    <button role="tab" data-tab="bell">Zil Programı</button>
+    <button role="tab" data-tab="msg">Mesajlar</button>
+    <button role="tab" data-tab="duty">Nöbet Listesi</button>
+    <button role="tab" data-tab="set">Ayarlar</button>
+  </nav>
+
+  <!-- ANLIK -->
+  <section class="tab" id="tab-ann">
+    <div class="card">
+      <h2>Duyuru gönder</h2>
+      <label>Metin<textarea id="annText" maxlength="200" placeholder="Örn: Veli toplantısı 15:00'te konferans salonunda"></textarea></label>
+      <div class="chips" id="annQuick"></div>
+      <div class="row">
+        <label>Süre<select id="annDur"><option value="5">5 dakika</option><option value="10" selected>10 dakika</option><option value="30">30 dakika</option><option value="60">1 saat</option><option value="240">4 saat</option></select></label>
+        <label>Efekt<select id="annFx"></select></label>
+        <label>Tekrar<select id="annMode"><option value="loop">Süre boyunca sürekli kay</option><option value="mix">Döngü ile dönüşümlü</option></select></label>
+        <button class="btn primary" id="annSend">Panele gönder</button>
+      </div>
+      <div id="annActive"></div>
+    </div>
+  </section>
+
+  <!-- ZİL -->
+  <section class="tab" id="tab-bell" hidden>
+    <div class="card">
+      <h2>Zil programı</h2>
+      <p class="muted" style="margin:0">Her olay belirtilen saatte başlar ve "Süre" kadar panelde kalır. Hafta içi günlerde çalışır.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Saat</th><th>Olay</th><th>Panel mesajı</th><th>Süre (dk)</th><th>Efekt</th><th></th></tr></thead>
+        <tbody id="bellBody"></tbody></table></div>
+      <div class="row"><button class="btn" id="bellAdd">Olay ekle</button><button class="btn" id="bellGen">40+10 dk programını oluştur</button><span></span></div>
+    </div>
+    <div class="card">
+      <h2>Teneffüs göstergesi</h2>
+      <p class="muted" style="margin:0">Teneffüs boyunca panelde kalan süre gösterilir. Panel tek renk olduğu için renk değiştirme yerine yanan pikseller söner, sönenler yanar.</p>
+      <div class="row">
+        <label>Gösterim<select id="sBrk"><option value="bar">Alt bar (azalır)</option><option value="frame">Çerçeve (azalır)</option><option value="dots">Dakika noktaları</option><option value="none">Sadece süre</option></select></label>
+        <label>"Derse az kaldı" uyarısı (sn)<input type="number" id="sWarn" min="10" max="300"></label>
+        <label>Ders başı flaş süresi (sn)<input type="number" id="sFlash" min="0" max="10"></label>
+      </div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="sBrkMsgs">Teneffüste duyuru, nöbetçi ve mesajları da göster</label>
+        <label>Sayaç ekranı süresi (sn)<input type="number" id="sBrkCount" min="2" max="60"></label>
+      </div>
+      <p class="muted" style="margin:0">Açıkken teneffüs boyunca sayaç ekranı ile duyurular dönüşümlü gösterilir, kalan süre göstergesi yazılar kayarken de altta durur. "Derse az kaldı" süresine girilince sadece sayaç kalır.</p>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="sBig">Son 10 saniyede büyük geri sayım</label>
+        <button class="btn primary" id="simBtn">Önizle: 40 sn'lik teneffüs</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MESAJ -->
+  <section class="tab" id="tab-msg" hidden>
+    <div class="card">
+      <h2>Mesajlar</h2>
+      <p class="muted" style="margin:0">Sabit mesajlar her zaman döngüdedir. Tarih verilenler sadece o aralıkta görünür.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Aktif</th><th>Mesaj</th><th>Başlangıç</th><th>Bitiş</th><th>Efekt</th><th></th></tr></thead>
+        <tbody id="msgBody"></tbody></table></div>
+      <div class="row"><button class="btn" id="msgAdd">Mesaj ekle</button><span></span></div>
+    </div>
+  </section>
+
+  <!-- NÖBET -->
+  <section class="tab" id="tab-duty" hidden>
+    <div class="card">
+      <h2>Nöbet listesi</h2>
+      <div class="row">
+        <label>Excel (.xlsx) veya CSV dosyası<input type="file" id="dutyFile" accept=".xlsx,.xls,.csv"></label>
+        <label>Panel metni<select id="dutyFmt"><option value="full">Öğretmen + öğrenciler</option><option value="t">Sadece öğretmen</option></select></label>
+      </div>
+      <p class="muted" style="margin:0">Birden fazla ayın listesini tek dosyada yükleyebilirsin. Panel her gün o günün tarihine ait satırı gösterir. Dosyada "Tarih", "Nöbetçi Öğretmen", "Öğrenci 1", "Öğrenci 2" başlıkları olmalı; en kolayı aşağıdan şablonu indirip doldurmak.</p>
+      <div class="row">
+        <label>Şablon ayı<input type="month" id="tplMonth"></label>
+        <button class="btn" id="tplDl">Boş şablonu indir (.xlsx)</button><span></span>
+      </div>
+      <div id="dutyToday" class="active-ann"></div>
+      <div class="tbl"><table>
+        <thead><tr><th>Tarih</th><th>Gün</th><th>Öğretmen</th><th>Öğrenci 1</th><th>Öğrenci 2</th></tr></thead>
+        <tbody id="dutyBody"></tbody></table></div>
+      <div class="row"><p class="muted" style="margin:0" id="dutyInfo"></p><button class="btn small" id="dutyClear">Listeyi temizle</button></div>
+    </div>
+  </section>
+
+  <!-- AYAR -->
+  <section class="tab" id="tab-set" hidden>
+    <div class="card">
+      <h2>Panel</h2>
+      <div class="row">
+        <label>P10 modül sayısı<input type="number" id="sMod" min="1" max="16"></label>
+        <label>Kayma hızı (piksel/sn)<input type="number" id="sSpeed" min="10" max="120"></label>
+        <label>Saat/tarih gösterimi (sn)<input type="number" id="sClock" min="2" max="30"></label>
+      </div>
+      <div class="row">
+        <label>Gündüz parlaklığı %<input type="range" id="sDay" min="5" max="100"></label>
+        <label>Akşam parlaklığı %<input type="range" id="sNight" min="5" max="100"></label>
+        <label>Akşam başlangıcı<input type="time" id="sNightAt"></label>
+      </div>
+      <div class="row">
+        <label>Panel açılış<input type="time" id="sOnAt"></label>
+        <label>Panel kapanış<input type="time" id="sOffAt"></label>
+        <label class="chk"><input type="checkbox" id="sWk">Hafta sonu kapalı</label>
+      </div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="sLdr">LDR ile otomatik parlaklık (LDR takılıysa)</label>
+        <label class="chk"><input type="checkbox" id="sRev">Modül sırasını ters çevir</label>
+      </div>
+      <p class="muted mono" id="sRes" style="margin:0"></p>
+    </div>
+    <div class="card">
+      <h2>Tatil günleri</h2>
+      <p class="muted" style="margin:0">Bu tarihlerde panel bütün gün kapalı kalır, zil mesajları gösterilmez. Hafta sonları ayrıca "Hafta sonu kapalı" ayarıyla kapanır. Tek günlük tatilde bitiş tarihini boş bırakabilirsin.</p>
+      <div id="holToday"></div>
+      <div class="tbl"><table>
+        <thead><tr><th>Açıklama</th><th>Başlangıç</th><th>Bitiş</th><th>Gün</th><th></th></tr></thead>
+        <tbody id="holBody"></tbody></table></div>
+      <div class="row"><button class="btn" id="holAdd">Tatil ekle</button><button class="btn" id="holMeb">2026-2027 MEB takvimini yükle</button><button class="btn small" id="holPast">Geçmiş tatilleri sil</button><span></span></div>
+    </div>
+    <div class="card">
+      <h2>Cihaz durumu</h2>
+      <div class="stats" id="devStats"><div class="stat"><span class="muted">Demo modunda cihaz bilgisi yok.</span></div></div>
+      <div class="row" id="devBtns" hidden>
+        <button class="btn" id="btnShowStatus" hidden>Panelde durumu göster</button>
+        <button class="btn" id="btnRestart">Yeniden başlat</button>
+        <button class="btn" id="btnWifi">Wi-Fi ayarlarını sıfırla</button>
+        <span></span>
+      </div>
+      <p class="muted" style="margin:0">Panel köşesindeki tek piksel: saniyede bir yanıp sönüyorsa Wi-Fi yok, iki saniyede bir kısa yanıyorsa internet yok. Karttaki BOOT tuşuna kısa basınca panel 10 saniye durum bilgisini yazar.</p>
+    </div>
+    <div class="card" id="passCard" hidden>
+      <h2>Yönetici şifresi</h2>
+      <p class="muted" style="margin:0">Kullanıcı adı: <span class="mono">admin</span>. İlk şifre <span class="mono">ledpano</span>, ilk girişten sonra değiştir. Aynı şifre kablosuz yazılım güncellemesinde (OTA) de kullanılır.</p>
+      <div class="row">
+        <label>Yeni şifre (en az 6 karakter)<input type="password" id="pNew" autocomplete="new-password"></label>
+        <label>Yeni şifre tekrar<input type="password" id="pNew2" autocomplete="new-password"></label>
+        <button class="btn primary" id="pSave">Şifreyi değiştir</button>
+      </div>
+    </div>
+    <div class="card" id="demoCard">
+      <h2>Demo</h2>
+      <div class="row"><button class="btn" id="resetAll">Demo verisini sıfırla</button><span></span></div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const FONT={"F_LARGE":{"32":[0,0,0,0],"33":[14588,15356,15356,15356],"34":[124,124,124,124,124,124],"35":[1536,1632,15968,16352,16380,2044,15996,16356,16376,2044,1660,1636,96],"36":[6368,14832,14840,13304,65534,65534,65534,16184,16184,7984,3072],"37":[32,248,508,508,8588,14844,15868,8184,1984,992,8184,16380,16284,12676,16256,16256,7936,1024],"38":[3840,8064,16376,16380,14844,13308,14284,16268,16156,15896,16256,16256,13184,8320],"39":[124,124,124],"40":[896,8176,32764,65534,64638,49158],"41":[32770,57358,65534,65534,32764,8176],"42":[408,504,240,1020,1020,240,504,408],"43":[768,768,768,768,16368,16368,16368,768,768,768,768,768],"44":[49152,63488,63488,63488,14336],"45":[768,768,768,768,768,768],"46":[14336,14336,14336,14336],"47":[49152,63488,65280,16368,2044,252,28],"48":[4080,8184,16380,16380,14364,12300,15420,16380,8184,8184,2016],"49":[12312,12316,12316,16380,16380,16380,16380,12288,12288,12288],"50":[12344,14392,15388,15900,15884,16156,14332,13308,12792,12536],"51":[6144,14360,14748,12684,12684,13276,16380,16380,8188,8056,1024],"52":[1920,1984,2016,1784,1660,16380,16380,16380,16380,1536,1536],"53":[6144,14844,14844,12540,12492,14796,16332,16332,8140,8076,1536],"54":[2016,8176,8184,16380,16380,12508,14796,16332,16348,8088,3840],"55":[12,12,12300,15884,16268,16364,4092,1020,252,60,12],"56":[3632,8184,16380,16380,15324,12684,15356,16380,16380,8056,3632],"57":[240,6648,15356,13308,13212,15116,16380,16380,8184,4080,992],"58":[14560,14560,14560,14560],"59":[32768,63712,63712,63712,14560],"60":[768,1920,1920,4032,4032,3264,7392,7392,6240,14448,14448,12336],"61":[3264,3264,3264,3264,3264,3264,3264,3264,3264,3264,3264,3264],"62":[14448,14448,6240,7392,7392,3264,4032,4032,1920,1920,768,768],"63":[24,28,15132,15244,15324,15356,508,248,48],"64":[3968,16352,32752,61560,61368,57308,40924,39116,39116,40908,57308,57308,56376,8176,4064,960],"65":[8192,15360,16256,16352,16380,2044,1788,1660,2044,8188,16368,16256,15360,12288],"66":[16380,16380,16380,16380,16380,12684,12684,16380,16380,16380,8056,3584],"67":[2016,4080,8184,16380,15996,14364,12300,12300,12300,14364,14364],"68":[16380,16380,16380,16380,16380,12300,12300,14364,15420,16380,8184,4080,2016],"69":[16380,16380,16380,16380,16380,12684,12684,12684,12684,12684],"70":[16380,16380,16380,16380,16380,396,396,396,396,396],"71":[2016,4080,8184,16380,15420,14364,12300,12684,14732,16268,16284,8092,8064],"72":[16380,16380,16380,16380,16380,384,384,384,16380,16380,16380,16380,16380],"73":[16380,16380,16380,16380,16380],"74":[6144,14336,14348,12300,14348,16380,16380,8188],"75":[16380,16380,16380,16380,16380,2016,4080,8184,15932,15420,14364,12300,8196],"76":[16380,16380,16380,16380,16380,12288,12288,12288,12288,12288],"77":[16380,16380,16380,16380,16380,1020,4080,4032,4032,4080,1020,16380,16380,16380,16380],"78":[16380,16380,16380,16380,16380,508,2032,8128,16128,16380,16380,16380,16380],"79":[2016,4080,8184,16380,15420,14364,12300,12300,14364,16380,8184,8184,4080,960],"80":[16380,16380,16380,16380,16380,780,780,1020,1020,1020,504,240],"81":[2016,4080,8184,16380,15420,14364,12300,28684,63516,65532,65528,40952,4080,960],"82":[16380,16380,16380,16380,16380,780,1948,8188,16380,16380,15608,12288,8192],"83":[6256,14584,14844,12796,12764,13260,15244,16268,16284,7964,3840],"84":[12,12,12,12,16380,16380,16380,16380,12,12,12,12,12],"85":[1020,8188,8188,16380,16380,14336,12288,14336,16380,16380,8188,4092],"86":[4,60,508,2044,16380,16352,16128,16128,16352,16376,4092,508,60,12],"87":[124,2044,16380,16380,16352,16256,16376,8188,508,1020,16380,16368,16128,16368,16380,16380,508,28],"88":[12300,14364,15932,16380,8184,4080,2032,8184,16380,15996,14364,12300,8192],"89":[4,28,60,252,16380,16368,16352,16368,16376,252,124,28,12],"90":[14348,15372,15884,16268,16332,14316,13308,12796,12540,12348,12316,12288],"91":[65534,65534,65534,65534,49158,49158,49158],"92":[12,124,1020,16368,65408,64512,57344],"93":[49158,49158,65534,65534,65534,65534],"94":[64,96,112,56,60,28,28,60,120,96,64],"95":[0,0],"96":[1,3,7,7,4],"97":[7776,16224,16224,16224,13152,15200,16352,16352,16352,16320],"98":[16382,16382,16382,16382,16382,12384,14560,16352,16352,16352,8128],"99":[3968,8128,16352,16352,14560,12384,12384,14560,6336],"100":[3968,8128,16352,16352,14560,12384,7616,16382,16382,16382,16382],"101":[3968,8128,16352,16352,15200,13152,13280,13280,15328,7104,768],"102":[96,96,16380,16382,16382,16382,102,102,6],"103":[3968,40896,49120,16352,14560,45152,56768,65504,65504,65504,32736],"104":[16382,16382,16382,16382,16382,96,224,16352,16352,16320,16256],"105":[16366,16366,16366,16366,16366],"106":[65518,65518,65518,65518,16366],"107":[16382,16382,16382,16382,16382,8128,16352,15840,14560,12384,8224],"108":[16382,16382,16382,16382,16382],"109":[16352,16352,16352,16352,16352,96,16352,16352,16352,16320,992,96,16352,16352,16352,16320],"110":[16352,16352,16352,16352,16352,96,224,16352,16352,16320,16256],"111":[3968,8128,16352,16352,14560,12384,14560,16352,16352,8128,3968],"112":[65504,65504,65504,65504,65504,12384,14560,16352,16352,16352,8128],"113":[3968,8128,16352,16352,14560,12384,7616,65504,65504,65504,65504],"114":[16352,16352,16352,16352,16352,96,96,96],"115":[6592,15328,13280,13280,13152,15968,16096,16096,7360],"116":[96,96,8188,16380,16380,16380,12384,12384,12384],"117":[4064,8160,16352,16352,14336,12288,7168,16352,16352,16352,16352],"118":[32,224,2016,8160,16352,16128,16128,16320,8160,2016,480,32],"119":[480,4064,16352,16352,15872,16352,16352,2016,16352,16320,16256,16352,16352,2016,224],"120":[12384,14560,16352,16352,8128,8128,16352,15840,14560,12320],"121":[32,224,2016,8160,65472,65280,65280,65472,16352,2016,480,32],"122":[14432,15456,15968,16224,16352,14304,13280,12768,12512],"123":[768,768,1920,65532,65534,65534,63614,32774,32774],"124":[65534,65534,65534],"125":[32774,32774,63614,65534,65534,65532,4032,768,768],"126":[768,896,384,384,384,896,896,768,768,896,896,384],"176":[24,60,126,70,126,126,60],"183":[448,448,448,448],"199":[2016,4080,8184,16380,15996,14364,61452,61452,61452,14364,14364],"214":[2016,4080,8184,16380,15421,14365,12300,12301,14365,16380,8184,8184,4080,960],"220":[1020,8188,8188,16381,16381,14336,12289,14337,16381,16380,8188,4092],"231":[3968,8128,16352,16352,14560,61536,61536,14560,6336],"246":[3968,8128,16358,16358,14566,12390,14566,16358,16358,8128,3968],"252":[4064,8160,16358,16358,14342,12288,7174,16358,16358,16352,16352],"286":[2016,4080,8184,16380,15421,14365,12301,12685,14732,16268,16284,8092,8064],"287":[3968,40896,49122,16358,14566,45156,56774,65510,65506,65504,32736],"304":[16380,16381,16381,16380,16380],"305":[16352,16352,16352,16352,16352],"350":[6256,14584,14844,12796,12764,62412,64396,49036,16284,7964,3840],"351":[6592,15328,13280,13280,62304,65120,48864,16096,7360],"8226":[384,960,2016,2016,2016,2016,960]},"F_MAIN":{"32":[0,0,0],"33":[3580,3580,3132],"34":[60,60,0,60,60],"35":[256,3360,4064,504,316,3872,1008,316,292,32],"36":[1136,2296,2264,16382,16382,3976,3984,1792],"37":[48,252,204,2180,3324,1912,448,224,1976,4044,2116,3264,4032,768],"38":[1920,2008,3324,2300,2532,4036,3848,3840,4032,2496],"39":[60,60],"40":[480,4092,8190,6150],"41":[4098,7710,8190,2040],"42":[136,216,112,508,112,80,216],"43":[384,384,384,384,4080,4080,384,384,384],"44":[15872,15872,3584],"45":[384,384,384,384],"46":[3584,3584,3584],"47":[12288,15872,2016,252,12],"48":[1008,2040,3612,2052,2052,4092,2040,1008],"49":[2056,2052,4092,4092,4092,2048,2048],"50":[3080,3588,3844,3972,2508,2300,2168,2048],"51":[1032,2052,2116,2116,3308,4092,1976,768],"52":[448,480,312,284,4092,4092,4092,256],"53":[1148,2172,2108,2084,3172,4068,1988,896],"54":[1008,2040,4092,2084,2084,4068,1996,896],"55":[4,2052,3844,4036,1012,252,60,12],"56":[1976,4092,3324,2116,2116,4092,1980,1808],"57":[1272,2556,2444,2308,3468,4092,2040,496],"58":[3696,3696,3696],"59":[15984,15984,3696],"60":[384,384,960,960,576,1632,1632,1056,3120],"61":[816,816,816,816,816,816,816,816,816],"62":[3120,3120,1632,1632,1632,960,960,960,384],"63":[8,3332,3524,3564,124,56],"64":[2016,3696,6168,13260,10212,9252,9252,10212,14316,5128,816,480],"65":[2048,3840,4064,504,380,284,380,504,4032,3840,2048],"66":[4092,4092,4092,2116,2116,3308,4092,1976,768],"67":[1008,2040,4092,3084,2052,2052,2052,3084],"68":[4092,4092,4092,2052,2052,2052,3612,2040,2040,480],"69":[4092,4092,4092,2116,2116,2116,2116,2048],"70":[4092,4092,4092,68,68,68,68],"71":[1008,2040,4092,3084,2052,2116,2116,4036,4044,1984],"72":[4092,4092,4092,64,64,64,64,4092,4092,4092],"73":[4092,4092,4092],"74":[1024,2052,2052,3076,4092,2044],"75":[4092,4092,4092,480,1008,1976,3868,3596,3076,2048],"76":[4092,4092,4092,2048,2048,2048,2048,2048],"77":[4092,4092,4092,60,496,960,960,496,60,4092,4092,4092],"78":[4092,4092,4092,124,240,960,3840,4092,4092,4092],"79":[1008,2040,4092,3084,2052,2052,3084,4092,2040,1008],"80":[4092,4092,4092,260,260,396,508,248,112],"81":[1008,2040,4092,3084,2052,2052,15372,16380,10232,1008],"82":[4092,4092,4092,132,132,1020,4092,3960,3072],"83":[3192,3324,2300,2276,2500,4036,4044,1920],"84":[4,4,4,4092,4092,4092,4,4,4,4],"85":[1020,2044,4092,3072,2048,2048,4092,4092,2044],"86":[4,60,508,2032,3968,3584,4032,2040,252,60,4],"87":[4,124,2044,4080,3840,4032,1020,60,252,4080,3840,4032,4092,508,12],"88":[3084,3612,2044,1008,480,1016,3900,3612,3076],"89":[4,28,60,248,4064,4064,248,60,28,4],"90":[3588,3844,4036,3044,2548,2300,2108,2076,2048],"91":[8190,8190,8190,4098,4098],"92":[12,124,2016,16128,12288],"93":[4098,4098,8190,8190],"94":[32,48,28,12,12,24,48,32],"95":[16384,16384,16384,16384,16384,16384,16384],"96":[2,6,12],"97":[1808,3984,2448,2192,3248,4080,4064],"98":[4094,4094,4094,2064,2064,3120,4080,2016],"99":[2016,4080,3120,2064,2064,2064],"100":[2016,4080,3120,2064,2064,4094,4094,4094],"101":[2016,4080,3248,2192,2192,2288,3296,192],"102":[16,4088,4094,4094,18,18],"103":[2016,28656,19504,18448,26640,32752,16368,8176],"104":[4094,4094,4094,16,16,4080,4080,4064],"105":[4086,4086,4086],"106":[16384,16384,32758,32758,8182],"107":[4094,4094,4094,960,2016,3696,3120,2064],"108":[4094,4094,4094],"109":[4080,4080,4080,16,16,4080,4080,4064,16,16,4080,4080,4032],"110":[4080,4080,4080,16,16,4080,4080,4064],"111":[2016,4080,3120,2064,2064,4080,2016,960],"112":[32752,32752,32752,2064,2064,3120,4080,2016],"113":[2016,4080,3120,2064,2064,32752,32752,32752],"114":[4080,4080,4080,16,16,16],"115":[1248,2544,2448,2448,3984,4000,768],"116":[16,2044,4092,4092,2064,2064],"117":[2032,4080,4080,2048,2048,4080,4080,4080],"118":[16,240,1008,4032,3584,3968,2032,240,16],"119":[240,4080,4032,3840,2032,240,2032,3840,4032,4080,240],"120":[2048,3120,3696,2016,960,2016,3696,3120,2048],"121":[16,16624,17392,32704,32256,16256,2032,240,16],"122":[3600,3856,4048,3056,2544,2160,2096],"123":[128,448,8188,16254,12294,8194],"124":[32766],"125":[8194,12294,16254,8188,448,128],"126":[384,192,192,192,192,384,384,384,192],"176":[56,108,68,108,56],"183":[448,448,448],"199":[1008,2040,4092,19468,18436,30724,2052,3084],"214":[1008,2040,4092,3085,2052,2053,3085,4092,2040,1008],"220":[1020,2044,4093,3073,2048,2049,4093,4092,2044],"231":[2016,4080,19504,18448,30736,2064],"246":[2016,4080,3126,2064,2070,4086,2016,960],"252":[2032,4080,4086,2048,2054,4086,4080,4080],"286":[1008,2040,4092,3085,2053,2117,2116,4036,4044,1984],"287":[2016,28656,19510,18452,26644,32758,16368,8176],"304":[4092,4093,4093],"305":[4080,4080,4080],"350":[3192,3324,18684,18660,31172,4036,4044,1920],"351":[1248,18928,18832,31120,12176,4000,768],"8226":[224,496,496,496,224]},"F_SMALL":{"32":[0,0],"33":[1776,1776],"34":[48,0,48],"35":[1344,2016,368,2016,368,64],"36":[1248,1520,4080,1952,768],"37":[112,240,1232,880,192,880,1424,1920,768],"38":[256,1952,1776,1488,1936,1792,1408],"39":[48],"40":[2032,3640],"41":[3128,4080],"42":[96,240,96],"43":[384,384,2016,384,384,128],"44":[3584,1536],"45":[256,384,384],"46":[1536,1536],"47":[3072,960,112],"48":[448,2032,1552,1040,2032,992],"49":[1040,2032,2032,1536,1024],"50":[1552,1808,2032,1264,1024],"51":[1040,1168,1776,2032,768],"52":[768,960,880,2032,2032,768],"53":[1776,1232,1744,2000,768],"54":[128,1008,2032,1232,2000,896],"55":[16,1040,1808,1008,240,16],"56":[2032,1744,1232,2032,800],"57":[96,1264,1424,1680,2032,480],"58":[1760,1600],"59":[3808,1600],"60":[384,384,960,576,608,32],"61":[832,832,832,832,832,64],"62":[1632,576,832,448,384,128],"63":[1040,2000,240,32],"64":[2016,2080,7120,5712,7120,3632,992],"65":[1536,1984,1008,816,1008,1984,1536],"66":[2032,2032,1232,2032,2032],"67":[192,1008,1840,1040,1040,1552],"68":[2032,2032,1552,1584,2032,480],"69":[2032,2032,1744,1744,1024],"70":[2032,2032,208,208],"71":[192,1008,1840,1040,1168,1936,1936],"72":[2032,2032,192,192,2032,2032],"73":[2032,2032],"74":[1024,1040,2032,1008],"75":[2032,2032,480,816,1552,1024],"76":[2032,2032,1536,1536,1024],"77":[2032,2032,480,896,480,2032,2032],"78":[2032,2032,224,1920,2032,2032],"79":[192,1008,1584,1040,1552,2032,992],"80":[2032,2032,400,240,240],"81":[192,1008,1584,1040,3600,8176,992],"82":[2032,2032,400,1008,1904,1024],"83":[1776,1232,1232,1936,896],"84":[16,16,2032,2032,16,16],"85":[1008,2032,1024,1536,2032,496],"86":[16,240,1984,1792,1984,240,16],"87":[16,1008,1984,1984,240,496,1920,1984,1008,16],"88":[1024,1584,1008,448,1008,1584,1024],"89":[16,112,2016,1984,112,48],"90":[1040,1808,1936,1776,1648,1584],"91":[4088,2072],"92":[48,480,3584],"93":[2072,4088],"94":[48,16,48,32],"95":[4096,4096,4096,4096],"96":[8,16],"97":[512,1888,1504,2016,1984],"98":[2040,1728,1120,2016,960],"99":[384,1984,1632,1120,1088],"100":[384,1984,1632,1088,2040,2040],"101":[384,1984,1504,1376,1472,384],"102":[96,2032,2040,120],"103":[384,6080,5728,5696,8160,4032],"104":[2040,192,96,2016,1984],"105":[2040],"106":[4096,8184],"107":[2040,896,960,1632,1024],"108":[2040],"109":[2016,192,96,1984,1984,96,2016,1984],"110":[2016,192,96,2016,1984],"111":[384,1984,1632,1120,1984,896],"112":[8160,1728,1120,2016,960],"113":[384,1984,1632,1088,8160,8128],"114":[2016,192,96],"115":[128,1472,1504,1888,1856],"116":[96,2032,2032,1120],"117":[2016,1536,1536,2016,1984],"118":[64,960,1792,1920,480],"119":[64,2016,1792,1984,480,1792,1984,224],"120":[1024,1760,960,960,1632],"121":[64,4544,7936,3968,480],"122":[1024,1888,2016,1248,1088],"123":[384,4064,8184,6168],"124":[8184],"125":[6168,7800,4080,384],"126":[384,128,128,384,384,128],"176":[112,88,48],"183":[448,128],"199":[192,1008,1840,5136,7184,1552],"214":[192,1008,1588,1040,1556,2032,992],"220":[1008,2036,1024,1542,2032,496],"231":[384,1984,5728,7264,1088],"246":[384,1984,1640,1128,1984,896],"252":[2016,1560,1536,2024,1984],"286":[192,1008,1840,1044,1172,1936,1936],"287":[384,6080,5752,5712,8168,4032],"304":[2038,2032],"305":[2016],"350":[1776,5328,7376,1936,896],"351":[128,1472,7648,3936,1856],"8226":[192,448,448,128]},"F_BIG":{"48":[4080,8184,16380,32766,28686,24582,24582,30750,16380,16380,4080],"49":[24588,24588,24582,32766,32766,32766,32766,24576,24576,24576],"50":[24588,28684,30734,31750,32262,28422,26510,25598,25084,24824,24576],"51":[12288,28684,24582,24774,24774,24774,29166,32766,16382,16188,3584],"52":[3840,3968,3552,3312,3132,3102,32766,32766,32766,3072,3072],"53":[12288,12798,24830,24830,24774,24774,29126,32710,16262,16262,3840],"54":[2016,8184,16380,32764,29134,24774,24774,29126,32710,16268,7936],"55":[6,6,24582,30726,32262,32710,8182,1022,254,62,14],"56":[7696,16188,32766,32766,24774,24774,24774,31742,32766,16188,7704],"57":[248,12796,25596,25598,25350,25350,29582,16382,16380,8184,2032],"58":[31200,31200,31200,31200]}};
+</script>
+<script>
+/* ---------- Ortak ---------- */
+let DEV=false, FBM=false, OFF=0;                       // OFF: cihaz saati - tarayıcı saati (ms)
+const now=()=>Date.now()+OFF;
+const nowD=()=>new Date(now());
+const KEY="axora-panel-v4";
+const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const $=id=>document.getElementById(id);
+function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400)}
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const trUp=s=>s.toLocaleUpperCase("tr-TR");
+const FXL=[["none","Efekt yok"],["border","Dönen kenarlık"],["invert","Ters çevir (yanan söner)"],["blink","Yanıp sönme"],["sparkle","Yıldız zemin"],["wipe","Perde açılışı"]];
+const fxOpts=v=>FXL.map(([k,t])=>`<option value="${k}"${k===(v||"none")?" selected":""}>${t}</option>`).join("");
+$("annFx").innerHTML=fxOpts("border");
+const TYPES={giris:"Okul girişi",ders:"Ders başladı",teneffus:"Teneffüs",bitti:"Teneffüs bitti",cikis:"Çıkış",diger:"Diğer"};
+const GUN=["Pazar","Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi"];
+const GUN3=["PAZ","PZT","SAL","ÇAR","PER","CUM","CMT"];
+
+function genBells(){
+  const f=x=>String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0");
+  const out=[{t:"08:20",type:"giris",text:"GÜNAYDIN! DERSLER 08:30'DA BAŞLIYOR",d:10,fx:"wipe"}];
+  let m=8*60+30;
+  for(let i=1;i<=8;i++){
+    out.push({t:f(m),type:"ders",text:i+". DERS BAŞLADI",d:3,fx:"invert"});
+    m+=40;
+    if(i<8){const br=i===4?40:10;out.push({t:f(m),type:"teneffus",text:i===4?"ÖĞLE ARASI":"TENEFFÜS",d:br,fx:"sparkle"});m+=br;}
+    else out.push({t:f(m),type:"cikis",text:"İYİ GÜNLER! DERSLER SONA ERDİ",d:15,fx:"border"});
+  }
+  return out;
+}
+const SET_DEF={mod:4,speed:40,clock:5,day:80,night:35,nightAt:"18:00",onAt:"07:30",offAt:"18:00",wkOff:true,ldr:false,rev:false,brk:"bar",warn:60,flash:3,big:true,brkMsgs:true,brkCount:5};
+function demoDefault(){
+  const t=new Date(),D={ann:null,bells:genBells(),
+    msgs:[{on:true,text:"EREĞLİ MTAL ELEKTRİK-ELEKTRONİK TEKNOLOJİSİ ALANI",from:"",to:"",fx:"none"},
+          {on:true,text:"ATÖLYEDE İŞ GÜVENLİĞİ KURALLARINA UYALIM",from:"",to:"",fx:"border"},
+          {on:true,text:"TEKNOFEST BAŞVURULARI İÇİN ALAN ŞEFLİĞİNE BAŞVURUNUZ",from:iso(t),to:iso(new Date(t.getTime()+14*864e5)),fx:"none"}],
+    duty:[],dutyFmt:"full",hol:HOL_MEB.map(h=>({...h})),set:{...SET_DEF}};
+  let d=new Date(t),i=0;const n=["Orhan AKGÜN","Ahmet D.","Mehmet K.","Ayşe T.","Fatma Y."];
+  while(i<5){if(d.getDay()%6){D.duty.push({date:iso(d),t:n[i],s1:"Öğrenci "+(i*2+1),s2:"Öğrenci "+(i*2+2)});i++}d=new Date(d.getTime()+864e5)}
+  return D;
+}
+const HOL_MEB=[
+ {name:"1. DÖNEM ARA TATİLİ",from:"2026-11-16",to:"2026-11-20"},
+ {name:"YILBAŞI",from:"2027-01-01",to:""},
+ {name:"YARIYIL TATİLİ",from:"2027-01-25",to:"2027-02-05"},
+ {name:"2. DÖNEM ARA TATİLİ + RAMAZAN BAYRAMI",from:"2027-03-08",to:"2027-03-12"},
+ {name:"23 NİSAN",from:"2027-04-23",to:""},
+ {name:"KURBAN BAYRAMI + 19 MAYIS",from:"2027-05-17",to:"2027-05-19"},
+ {name:"YAZ TATİLİ",from:"2027-06-26",to:"2027-09-12"}];
+let S=demoDefault();
+
+/* ---------- Kaydetme ---------- */
+let saveTimer=null;
+function cfgPayload(){return{bells:S.bells,msgs:S.msgs,duty:S.duty.map(r=>({date:r.date,t:r.t,s1:r.s1,s2:r.s2,p:dutyText(r)})),dutyFmt:S.dutyFmt,hol:S.hol&&S.hol.length?S.hol:false,set:S.set}}
+function save(){
+  if(FBM){clearTimeout(saveTimer);saveTimer=setTimeout(fbSaveCfg,700);return}
+  if(!DEV){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}return}
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    const body=JSON.stringify({bells:S.bells,msgs:S.msgs,duty:S.duty.map(r=>({date:r.date,t:r.t,s1:r.s1,s2:r.s2,p:dutyText(r)})),dutyFmt:S.dutyFmt,hol:S.hol,set:S.set});
+    try{const r=await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body});
+      if(!r.ok)throw new Error(await r.text()||r.status);toast("Panele kaydedildi")}
+    catch(e){toast("Kaydedilemedi: "+e.message)}
+  },700);
+}
+
+/* ---------- Sekmeler ---------- */
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x===b));
+  document.querySelectorAll("section.tab").forEach(s=>s.hidden=s.id!=="tab-"+b.dataset.tab);
+});
+
+/* ---------- Anlık duyuru ---------- */
+["DERSLER 10 DAKİKA ERKEN BİTECEKTİR","ATÖLYE ÖĞRETMENLERİ ŞEF ODASINA","ÖĞRENCİLER BAHÇEDE TOPLANSIN","VELİ TOPLANTISI 15:00 KONFERANS SALONU"]
+ .forEach(q=>{const c=document.createElement("button");c.className="chip";c.textContent=q;c.onclick=()=>$("annText").value=q;$("annQuick").append(c)});
+$("annSend").onclick=async()=>{const t=$("annText").value.trim();if(!t){toast("Önce duyuru metnini yazın");return}
+  const a={text:trUp(t),dur:+$("annDur").value,mode:$("annMode").value,fx:$("annFx").value};
+  if(FBM){if(!await fbAnn(a))return}
+  else if(DEV){try{const r=await fetch("/api/ann",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(a)});
+      if(!r.ok)throw new Error(r.status);const j=await r.json();setAnnFromDev(j.ann)}catch(e){toast("Gönderilemedi: "+e.message);return}}
+  else{S.ann={text:a.text,until:now()+a.dur*60000,mode:a.mode,fx:a.fx};save()}
+  renderAnn();resetPlay();toast("Duyuru panele gönderildi")};
+function setAnnFromDev(a){S.ann=a&&a.rem>0?{text:a.text,until:now()+a.rem*1000,mode:a.mode,fx:a.fx}:null}
+function renderAnn(){const a=S.ann,box=$("annActive");
+  if(!a||a.until<now()){box.innerHTML="";return}
+  const left=Math.ceil((a.until-now())/60000);
+  box.innerHTML=`<div class="active-ann"><div><b>Yayında:</b> ${esc(a.text)}<div class="muted">${left} dk kaldı</div></div><button class="btn small" id="annStop">Yayından kaldır</button></div>`;
+  $("annStop").onclick=async()=>{if(FBM){if(!await fbAnn(null))return}else if(DEV){try{await fetch("/api/ann/clear",{method:"POST"})}catch(e){toast("Kaldırılamadı");return}}
+    S.ann=null;if(!DEV&&!FBM)save();renderAnn();resetPlay();toast("Duyuru kaldırıldı")};}
+
+/* ---------- Zil ---------- */
+function renderBells(){
+  S.bells.sort((a,b)=>a.t.localeCompare(b.t));
+  $("bellBody").innerHTML=S.bells.map((b,i)=>`<tr>
+   <td class="t"><input type="time" id="bt${i}" value="${b.t}" data-i="${i}" data-k="t"></td>
+   <td><select id="by${i}" data-i="${i}" data-k="type">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}"${k===b.type?" selected":""}>${v}</option>`).join("")}</select></td>
+   <td><input id="bx${i}" value="${esc(b.text)}" data-i="${i}" data-k="text" maxlength="60"></td>
+   <td class="n"><input type="number" min="1" max="60" id="bd${i}" value="${b.d}" data-i="${i}" data-k="d"></td>
+   <td><select id="bf${i}" data-i="${i}" data-k="fx">${fxOpts(b.fx)}</select></td>
+   <td><button class="btn small" data-del="${i}" aria-label="Sil">Sil</button></td></tr>`).join("");
+}
+$("bellBody").addEventListener("change",e=>{const el=e.target,i=el.dataset.i;if(i==null)return;
+  S.bells[i][el.dataset.k]=el.dataset.k==="d"?Math.max(1,Math.min(60,+el.value||1)):el.dataset.k==="text"?trUp(el.value):el.value;save();if(el.dataset.k==="t")renderBells();resetPlay()});
+$("bellBody").addEventListener("click",e=>{const i=e.target.dataset.del;if(i!=null){S.bells.splice(i,1);save();renderBells();resetPlay()}});
+$("bellAdd").onclick=()=>{if(S.bells.length>=40){toast("En fazla 40 olay");return}S.bells.push({t:"12:00",type:"diger",text:"YENİ OLAY",d:5,fx:"none"});save();renderBells()};
+$("bellGen").onclick=()=>{S.bells=genBells();save();renderBells();resetPlay();toast("Örnek program oluşturuldu")};
+
+/* ---------- Mesajlar ---------- */
+function renderMsgs(){
+  $("msgBody").innerHTML=S.msgs.map((m,i)=>`<tr>
+   <td><input type="checkbox" id="mo${i}" ${m.on?"checked":""} data-i="${i}" data-k="on" style="width:auto"></td>
+   <td style="min-width:220px"><input id="mt${i}" value="${esc(m.text)}" data-i="${i}" data-k="text" maxlength="150"></td>
+   <td><input type="date" id="mf${i}" value="${m.from}" data-i="${i}" data-k="from"></td>
+   <td><input type="date" id="mu${i}" value="${m.to}" data-i="${i}" data-k="to"></td>
+   <td><select id="mx${i}" data-i="${i}" data-k="fx">${fxOpts(m.fx)}</select></td>
+   <td><button class="btn small" data-del="${i}">Sil</button></td></tr>`).join("");
+}
+$("msgBody").addEventListener("change",e=>{const el=e.target,i=el.dataset.i;if(i==null)return;const k=el.dataset.k;
+  S.msgs[i][k]=k==="on"?el.checked:k==="text"?trUp(el.value):el.value;save();resetPlay()});
+$("msgBody").addEventListener("click",e=>{const i=e.target.dataset.del;if(i!=null){S.msgs.splice(i,1);save();renderMsgs();resetPlay()}});
+$("msgAdd").onclick=()=>{if(S.msgs.length>=20){toast("En fazla 20 mesaj");return}S.msgs.push({on:true,text:"YENİ MESAJ",from:"",to:"",fx:"none"});save();renderMsgs()};
+
+/* ---------- Nöbet ---------- */
+function dutyText(r){if(!r)return"";const base="BUGÜNÜN NÖBETÇİLERİ: ÖĞR. "+r.t;
+  const st=[r.s1,r.s2].filter(Boolean).join(", ");return trUp(S.dutyFmt==="t"||!st?base:base+" · ÖĞRENCİLER: "+st)}
+function renderDuty(){const td=iso(nowD());
+  $("dutyFmt").value=S.dutyFmt;
+  $("dutyBody").innerHTML=S.duty.map(r=>{const d=new Date(r.date+"T12:00");return `<tr class="${r.date===td?"today":""}">
+   <td class="mono">${d.toLocaleDateString("tr-TR")}</td><td>${GUN[d.getDay()]}</td><td>${esc(r.t)}</td><td>${esc(r.s1)}</td><td>${esc(r.s2)}</td></tr>`}).join("");
+  const r=S.duty.find(x=>x.date===td);
+  $("dutyToday").innerHTML=r?`<div><b>Bugün panelde:</b><div class="mono" style="font-size:13px">${esc(dutyText(r))}</div></div>`:`<div class="muted">Bugün için nöbet kaydı yok, panelde nöbetçi mesajı gösterilmez.</div>`;
+  $("dutyInfo").textContent=S.duty.length?S.duty.length+" günlük liste yüklü.":"Liste yok.";
+}
+$("dutyFmt").onchange=e=>{S.dutyFmt=e.target.value;save();renderDuty();resetPlay()};
+$("dutyClear").onclick=()=>{S.duty=[];save();renderDuty();resetPlay();toast("Nöbet listesi temizlendi")};
+function loadXLSX(){return new Promise((ok,no)=>{if(window.XLSX)return ok();const s=document.createElement("script");
+  s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";s.onload=()=>ok();s.onerror=()=>no(new Error("Excel okuyucu yüklenemedi (internet yok). Dosyayı CSV olarak kaydedip yükleyin."));document.head.append(s)})}
+function parseCSV(txt){const sep=(txt.split("\n")[0].match(/;/g)||[]).length>(txt.split("\n")[0].match(/,/g)||[]).length?";":",";
+  return txt.replace(/\r/g,"").split("\n").map(l=>{const out=[];let cur="",q=false;for(const ch of l){if(ch==='"'){q=!q;continue}if(ch===sep&&!q){out.push(cur);cur="";continue}cur+=ch}out.push(cur);return out})}
+$("dutyFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;
+  try{let rows;
+    if(/\.csv$/i.test(f.name))rows=parseCSV(await f.text());
+    else{await loadXLSX();const wb=XLSX.read(await f.arrayBuffer(),{cellDates:true});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true})}
+    const h=rows.findIndex(r=>r.some(c=>String(c??"").trim().toLocaleLowerCase("tr-TR")==="tarih"));
+    if(h<0)throw new Error("'Tarih' başlığı bulunamadı");
+    const Hd=rows[h].map(c=>String(c??"").toLocaleLowerCase("tr-TR"));
+    const cD=Hd.findIndex(x=>x.includes("tarih")),cT=Hd.findIndex(x=>x.includes("öğretmen")),c1=Hd.findIndex(x=>x.includes("öğrenci 1")),c2=Hd.findIndex(x=>x.includes("öğrenci 2"));
+    const out=[];
+    for(const r of rows.slice(h+1)){let v=r[cD];if(v==null||v==="")continue;let d;
+      if(v instanceof Date)d=new Date(v.getTime()+12*36e5);
+      else if(typeof v==="number")d=new Date(Math.round((v-25569)*864e5)+12*36e5);
+      else{const m=String(v).match(/(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);if(!m)continue;d=new Date(+m[3],m[2]-1,+m[1],12)}
+      const t=String(r[cT]??"").trim();if(!t)continue;
+      out.push({date:iso(d),t:t.slice(0,40),s1:String(r[c1]??"").trim().slice(0,30),s2:String(r[c2]??"").trim().slice(0,30)});}
+    if(!out.length)throw new Error("Dolu satır bulunamadı");
+    if(out.length>366)throw new Error("En fazla 366 gün yüklenebilir");
+    out.sort((a,b)=>a.date.localeCompare(b.date));
+    S.duty=out;save();renderDuty();resetPlay();toast(out.length+" günlük nöbet listesi yüklendi");
+  }catch(err){toast("Dosya okunamadı: "+err.message)}
+  e.target.value=""};
+
+/* ---------- Ayarlar ---------- */
+const sIds={sMod:"mod",sSpeed:"speed",sClock:"clock",sDay:"day",sNight:"night",sNightAt:"nightAt",sOnAt:"onAt",sOffAt:"offAt",sBrk:"brk",sWarn:"warn",sFlash:"flash",sBrkCount:"brkCount"};
+const sChk={sBig:"big",sWk:"wkOff",sLdr:"ldr",sRev:"rev",sBrkMsgs:"brkMsgs"};
+function renderSet(){for(const[id,k]of Object.entries(sIds))$(id).value=S.set[k];for(const[id,k]of Object.entries(sChk))$(id).checked=!!S.set[k];
+  $("sRes").textContent=`Çözünürlük: ${S.set.mod*32} × 16 piksel · ${S.set.mod} adet P10 (32×16) yan yana`;}
+for(const[id,k]of Object.entries(sChk))$(id).addEventListener("change",e=>{S.set[k]=e.target.checked;save();resetPlay()});
+for(const[id,k]of Object.entries(sIds))$(id).addEventListener("change",e=>{S.set[k]=e.target.type==="time"||e.target.tagName==="SELECT"?e.target.value:+e.target.value;
+  if(k==="mod")S.set.mod=Math.max(1,Math.min(16,S.set.mod||1));save();renderSet();sizeCanvas();resetPlay()});
+$("simBtn").onclick=async()=>{SIM={t0:now(),dur:40,warn:20};resetPlay();window.scrollTo({top:0,behavior:"smooth"});
+  if(FBM){if(await fbCmd("sim"))toast("Önizleme komutu gönderildi, panel birkaç saniye içinde başlar")}
+  else if(DEV){try{await fetch("/api/sim",{method:"POST"});toast("Önizleme panelde ve burada başladı")}catch(e){toast("Panele ulaşılamadı")}}else toast("Önizleme başladı: üstteki panele bak")};
+$("resetAll").onclick=()=>{S=demoDefault();save();renderAll();toast("Demo verisi sıfırlandı")};
+$("pSave").onclick=async()=>{const a=$("pNew").value,b=$("pNew2").value;
+  if(a.length<6){toast("Şifre en az 6 karakter olmalı");return}if(a!==b){toast("Şifreler aynı değil");return}
+  try{const r=await fetch("/api/pass",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pass:a})});if(!r.ok)throw new Error(r.status);
+    toast("Şifre değişti. Tarayıcı yeni şifreyi soracak.");$("pNew").value=$("pNew2").value=""}catch(e){toast("Değiştirilemedi: "+e.message)}};
+$("btnRestart").onclick=async()=>{if(FBM){if(await fbCmd("restart"))toast("Yeniden başlatma komutu gönderildi");return}try{await fetch("/api/restart",{method:"POST"})}catch(e){}toast("Panel yeniden başlıyor…")};
+let wifiArm=0;
+$("btnWifi").onclick=async()=>{if(Date.now()-wifiArm>4000){wifiArm=Date.now();toast("Emin misin? Onaylamak için 4 sn içinde tekrar bas.");return}
+  try{await fetch("/api/wifireset",{method:"POST"})}catch(e){}toast("Wi-Fi bilgileri silindi. Panel kurulum ağını açacak: LedPano-Kurulum")};
+const fmtUp=s=>{const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return(d?d+" g ":"")+h+" sa "+m+" dk"};
+async function pollStatus(){if(!DEV)return;try{const r=await fetch("/api/status",{cache:"no-store"});const j=await r.json();
+  OFF=j.now*1000-Date.now();
+  const ntp=j.ntp?new Date(j.ntp*1000).toLocaleString("tr-TR"):"henüz yok";
+  $("devStats").innerHTML=[
+   ["Wi-Fi",`<span class="dot ${j.wifi?"on":"off"}"></span> ${j.wifi?esc(j.ssid)+" · "+j.rssi+" dBm":"bağlı değil"}`],
+   ["İnternet",`<span class="dot ${j.net?"on":"off"}"></span> ${j.net?"var":"yok"}`],
+   ["IP",`<span class="mono">${esc(j.ip)}</span>`],
+   ["Saat",`${new Date(j.now*1000).toLocaleString("tr-TR")} · RTC ${j.rtc?"çalışıyor":"yok/ayarsız"}`],
+   ["Son NTP",ntp],["Panel",j.on?"açık":"kapalı ("+esc(j.why||"mesai dışı").toLocaleLowerCase("tr-TR")+")"],
+   ["Çalışma süresi",fmtUp(j.up)],["Yazılım",esc(j.fw)],
+   ["Bulut",j.fb==null||j.fb<0?"kapalı":`<span class="dot ${j.fb===2?"on":"off"}"></span> ${["kapalı","bağlanıyor","bağlı","hata"][j.fb]}${j.fbErr?" · "+esc(j.fbErr):""}`]
+  ].map(([k,v])=>`<div class="stat"><b>${k}</b><span>${v}</span></div>`).join("");
+  if(j.ann)setAnnFromDev(j.ann);else if(S.ann&&S.ann.until>now())S.ann=null;
+ }catch(e){$("devStats").innerHTML=`<div class="stat"><span class="dot off"></span><span>Panele ulaşılamıyor</span></div>`}}
+
+/* ---------- Tatiller ---------- */
+const hDays=h=>{if(!h.from)return 0;const a=new Date(h.from+"T12:00"),b=new Date((h.to||h.from)+"T12:00");return Math.max(0,Math.round((b-a)/864e5)+1)};
+function renderHol(){S.hol=(S.hol||[]);const td=iso(nowD());
+  $("holBody").innerHTML=S.hol.map((h,i)=>`<tr class="${h.from&&h.from<=td&&(h.to||h.from)>=td?"today":""}">
+   <td style="min-width:200px"><input value="${esc(h.name)}" data-i="${i}" data-k="name" maxlength="60"></td>
+   <td><input type="date" value="${h.from}" data-i="${i}" data-k="from"></td>
+   <td><input type="date" value="${h.to||""}" data-i="${i}" data-k="to"></td>
+   <td class="mono">${hDays(h)||"-"}</td>
+   <td><button class="btn small" data-del="${i}">Sil</button></td></tr>`).join("");
+  const h=holToday();let nx=null;for(const x of S.hol)if(x.from>td&&(!nx||x.from<nx.from))nx=x;
+  $("holToday").innerHTML=h?`<div class="active-ann"><div><b>Bugün tatil:</b> ${esc(h.name)} · panel kapalı</div></div>`
+    :`<p class="muted" style="margin:0">${nx?"Sıradaki tatil: <b>"+esc(nx.name)+"</b> · "+new Date(nx.from+"T12:00").toLocaleDateString("tr-TR"):"Kayıtlı yaklaşan tatil yok."}</p>`}
+function sortHol(){S.hol.sort((a,b)=>(a.from||"9").localeCompare(b.from||"9"))}
+$("holBody").addEventListener("change",e=>{const el=e.target,i=el.dataset.i;if(i==null)return;const k=el.dataset.k,h=S.hol[i];
+  h[k]=k==="name"?trUp(el.value):el.value;if(h.to&&h.from&&h.to<h.from)h.to=h.from;if(k!=="name")sortHol();save();renderHol();resetPlay()});
+$("holBody").addEventListener("click",e=>{const i=e.target.dataset.del;if(i!=null){S.hol.splice(i,1);save();renderHol();resetPlay()}});
+$("holAdd").onclick=()=>{if(S.hol.length>=40){toast("En fazla 40 tatil");return}S.hol.push({name:"TATİL",from:iso(nowD()),to:""});sortHol();save();renderHol();resetPlay()};
+$("holMeb").onclick=()=>{const have=new Set(S.hol.map(h=>h.from+"|"+h.to));let n=0;
+  for(const h of HOL_MEB)if(!have.has(h.from+"|"+h.to)&&S.hol.length<40){S.hol.push({...h});n++}
+  sortHol();save();renderHol();resetPlay();toast(n?n+" tatil eklendi":"MEB tatilleri zaten listede")};
+$("holPast").onclick=()=>{const td=iso(nowD()),n=S.hol.length;S.hol=S.hol.filter(h=>!h.from||(h.to||h.from)>=td);
+  save();renderHol();toast((n-S.hol.length)+" geçmiş tatil silindi")};
+
+/* ---------- Nöbet şablonu ---------- */
+$("tplMonth").value=iso(nowD()).slice(0,7);
+$("tplDl").onclick=async()=>{const [y,mo]=($("tplMonth").value||iso(nowD()).slice(0,7)).split("-").map(Number);
+  const head=["Tarih","Gün","Nöbetçi Öğretmen","Nöbetçi Öğrenci 1","Nöbetçi Öğrenci 2","Not"],rows=[head];
+  for(let d=new Date(y,mo-1,1,12);d.getMonth()===mo-1;d=new Date(d.getTime()+864e5)){
+    if(d.getDay()===0||d.getDay()===6)continue;const td=iso(d),h=(S.hol||[]).find(x=>x.from&&x.from<=td&&(x.to||x.from)>=td);
+    if(h)continue;rows.push([new Date(y,mo-1,d.getDate()),GUN[d.getDay()],"","","",""])}
+  const ay=new Date(y,mo-1,1).toLocaleDateString("tr-TR",{month:"long"}),fn=`nobet_listesi_${ay}_${y}`;
+  try{await loadXLSX();const ws=XLSX.utils.aoa_to_sheet(rows,{cellDates:true});
+    for(let r=1;r<rows.length;r++){const c=ws[XLSX.utils.encode_cell({r,c:0})];if(c)c.z="dd.mm.yyyy"}
+    ws["!cols"]=[{wch:12},{wch:11},{wch:26},{wch:22},{wch:22},{wch:20}];
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Nöbet");XLSX.writeFile(wb,fn+".xlsx");toast("Şablon indirildi: hafta içi "+(rows.length-1)+" gün (tatiller hariç)")}
+  catch(e){const csv="\ufeff"+rows.map(r=>r.map(c=>c instanceof Date?c.toLocaleDateString("tr-TR"):c).join(";")).join("\r\n");
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=fn+".csv";a.click();
+    toast("İnternet yok: şablon CSV olarak indirildi (Excel'de açılır)")}};
+
+/* ---------- LED önizleme (paneldeki fontun aynısı) ---------- */
+const cv=$("led"),ctx=cv.getContext("2d");let W=128;const H=16;
+function sizeCanvas(){W=S.set.mod*32;const cw=cv.clientWidth||900;const cell=cw/W;cv.width=Math.round(cw*devicePixelRatio);cv.height=Math.round(cell*H*devicePixelRatio);cv.style.height=(cell*H)+"px"}
+const cache=new Map();
+function raster(text,fn="F_MAIN"){const key=fn+"|"+text;if(cache.has(key))return cache.get(key);
+  const F=FONT[fn],M=FONT.F_MAIN,cols=[];
+  for(const ch of text){const cp=ch.codePointAt(0);const g=F[cp]||M[cp]||M[63];cols.push(...g,0)}
+  if(cols.length)cols.pop();const w=cols.length,bits=new Uint8Array(w*H);
+  for(let x=0;x<w;x++)for(let y=0;y<H;y++)bits[y*w+x]=(cols[x]>>y)&1;
+  const r={w,bits};if(cache.size>200)cache.clear();cache.set(key,r);return r}
+const hm2m=s=>{const[a,b]=String(s||"0:0").split(":").map(Number);return a*60+b};
+function holToday(){const td=iso(nowD());return(S.hol||[]).find(h=>h.from&&h.from<=td&&(h.to||h.from)>=td)}
+function panelOn(){const d=nowD(),m=d.getHours()*60+d.getMinutes();if(holToday())return false;if(S.set.wkOff&&(d.getDay()===0||d.getDay()===6))return false;return m>=hm2m(S.set.onAt)&&m<hm2m(S.set.offAt)}
+function brightness(){const d=nowD(),m=d.getHours()*60+d.getMinutes();return(m>=hm2m(S.set.nightAt)?S.set.night:S.set.day)/100}
+function hash(a,b){let h=Math.imul(a,374761393)+Math.imul(b,668265263);h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967295}
+function paint(buf){const cell=cv.width/W,b=brightness(),r=cell*0.36;ctx.fillStyle="#140d0c";ctx.fillRect(0,0,cv.width,cv.height);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){ctx.fillStyle=buf[y*W+x]?`rgba(255,59,43,${0.25+0.75*b})`:"#2a1614";ctx.beginPath();ctx.arc((x+.5)*cell,(y+.5)*cell,r,0,7);ctx.fill()}}
+function blit(buf,bm,x0,yo=0){for(let y=0;y<H;y++)for(let x=0;x<bm.w;x++)if(bm.bits[y*bm.w+x]){const X=x0+x,Y=y+yo;if(X>=0&&X<W&&Y>=0&&Y<H)buf[Y*W+X]=1}}
+const fitFont=t=>raster(t,"F_LARGE").w<=W?"F_LARGE":"F_MAIN";
+function applyFx(buf,fx,age){
+  if(!fx||fx==="none")return;
+  if(fx==="blink"&&Math.floor(age*3)%2===1){buf.fill(0);return}
+  if(fx==="sparkle"){const spk=Math.floor(age*6);for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(!buf[y*W+x]&&hash(x+spk*7,y)>0.985)buf[y*W+x]=1}
+  if(fx==="border"){const step=Math.floor(age*30);for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(y&&y<H-1&&x&&x<W-1)continue;
+      const k=y===0?x:x===W-1?W-1+y:y===H-1?W-1+H-1+(W-1-x):2*(W-1)+H-1+(H-1-y);buf[y*W+x]=((k+step)%8)<4?1:0}}
+  if(fx==="invert"&&Math.floor(age*2)%2===1)for(let i=0;i<buf.length;i++)buf[i]^=1;
+  if(fx==="wipe"){const wx=Math.min(W,Math.floor(age*W/1.2));if(wx<W)for(let y=0;y<H;y++){for(let x=wx+1;x<W;x++)buf[y*W+x]=0;buf[y*W+wx]=1}}
+}
+let SIM=null;
+const mmss=s=>{s=Math.max(0,Math.ceil(s));return Math.floor(s/60)+":"+String(s%60).padStart(2,"0")};
+function breakState(){
+  const fl=S.set.flash;
+  if(SIM){const el=(now()-SIM.t0)/1000;
+    if(el<SIM.dur)return{phase:"brk",rem:SIM.dur-el,total:SIM.dur,name:"TENEFFÜS",warn:SIM.warn};
+    if(el<SIM.dur+fl)return{phase:"flash",age:el-SIM.dur,text:"3. DERS BAŞLADI"};
+    SIM=null;return null}
+  const n=nowD();if(n.getDay()===0||n.getDay()===6)return null;
+  const t=n.getHours()*3600+n.getMinutes()*60+n.getSeconds()+n.getMilliseconds()/1000;
+  for(const b of S.bells){const s=hm2m(b.t)*60;
+    if(b.type==="teneffus"&&t>=s&&t<s+b.d*60)return{phase:"brk",rem:s+b.d*60-t,total:b.d*60,name:b.text,warn:S.set.warn};
+    if(b.type==="ders"&&fl>0&&t>=s&&t<s+fl)return{phase:"flash",age:t-s,text:b.text};}
+  return null}
+function drawIndicator(buf,st,sec,blinkOff){const rem=st.rem,style=S.set.brk;
+  if(style==="frame"&&!blinkOff){const P=2*(W+H)-4,lit=Math.round(P*rem/st.total);
+    for(let k=0;k<lit;k++){let x,y;if(k<W){x=k;y=0}else if(k<W+H-1){x=W-1;y=k-W+1}else if(k<2*W+H-2){x=W-1-(k-(W+H-2));y=H-1}else{x=0;y=H-1-(k-(2*W+H-3))}if(x>=0&&x<W&&y>=0&&y<H)buf[y*W+x]=1}}
+  if(style==="bar"&&!blinkOff){const bw=Math.round(W*rem/st.total);for(let y=14;y<16;y++)for(let x=0;x<bw&&x<W;x++)buf[y*W+x]=1}
+  if(style==="dots"){const unit=st.total>W/4*60?120:(st.total>=300?60:5),n=Math.ceil(rem/unit),part=(rem%unit)/unit;
+    for(let i=0;i<n;i++){const lastBlink=i===n-1&&part>0&&(sec%1)>0.5;if(blinkOff||lastBlink)continue;for(let y=14;y<16;y++)for(let x=i*4;x<i*4+3&&x<W;x++)buf[y*W+x]=1}}}
+function renderBreakItem(st,t,text,x){const buf=new Uint8Array(W*H);
+  if(S.set.brk==="frame"){blit(buf,raster(text),x,1);for(let xx=0;xx<W;xx++){buf[xx]=0;buf[(H-1)*W+xx]=0}for(let y=0;y<H;y++){buf[y*W]=0;buf[y*W+W-1]=0}}
+  else{blit(buf,raster(text),x);if(S.set.brk!=="none")buf.fill(0,13*W)}
+  drawIndicator(buf,st,t/1000,false);return buf}
+function renderBreak(st,t){const buf=new Uint8Array(W*H),sec=t/1000;
+  if(st.phase==="flash"){const bm=raster(st.text,fitFont(st.text));blit(buf,bm,Math.floor((W-bm.w)/2));
+    if(Math.floor(st.age*4)%2===0)for(let i=0;i<buf.length;i++)buf[i]^=1;return buf}
+  const rem=st.rem,warnOn=rem<=st.warn;
+  if(S.set.big&&rem<=10){const nb=raster(String(Math.ceil(rem)),"F_BIG");blit(buf,nb,Math.floor((W-nb.w)/2));
+    const l=raster("DERSE","F_SMALL"),r=raster("SANİYE","F_SMALL");blit(buf,l,1);blit(buf,r,W-r.w-1);
+    if(rem-Math.floor(rem)>0.82)for(let i=0;i<buf.length;i++)buf[i]^=1;return buf}
+  const blinkOff=warnOn&&(sec%0.6)>0.38,label=warnOn?"DERSE":st.name,time=mmss(rem);
+  if(S.set.brk==="frame"){const t2=label+"  "+time,fn=raster(t2).w<=W-4?"F_MAIN":"F_SMALL",tb=raster(t2,fn);blit(buf,tb,Math.floor((W-tb.w)/2),fn==="F_MAIN"?1:0)}
+  else{let fn="F_MAIN",lb=raster(label,fn),tb=raster(time,fn);if(lb.w+tb.w+6>W){fn="F_SMALL";lb=raster(label,fn);tb=raster(time,fn)}
+    blit(buf,lb,1);blit(buf,tb,W-tb.w)}
+  drawIndicator(buf,st,sec,blinkOff);return buf}
+const BR={sub:0,start:0,pos:0,text:"",w:0,idx:0};
+function nextBreakItem(){const td=iso(nowD()),it=[];
+  if(S.ann&&S.ann.until>now())it.push(S.ann.text);
+  const r=S.duty.find(x=>x.date===td);if(r)it.push(dutyText(r));
+  S.msgs.filter(m=>m.on&&m.text&&(!m.from||m.from<=td)&&(!m.to||m.to>=td)).forEach(m=>it.push(m.text));
+  if(!it.length)return false;BR.idx%=it.length;BR.text=it[BR.idx++];BR.w=raster(BR.text).w;return true}
+function activeBell(){const n=nowD();if(n.getDay()===0||n.getDay()===6)return null;const m=n.getHours()*60+n.getMinutes()+n.getSeconds()/60;
+  return S.bells.find(b=>{const s=hm2m(b.t);return m>=s&&m<s+b.d})}
+function clockText(){const n=nowD();return String(n.getDate()).padStart(2,"0")+"."+String(n.getMonth()+1).padStart(2,"0")+" "+GUN3[n.getDay()]+" "+String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0")}
+function loopItems(){const td=iso(nowD()),it=[{kind:"clock"}];const r=S.duty.find(x=>x.date===td);if(r)it.push({kind:"text",text:dutyText(r),lbl:"Nöbetçiler"});
+  S.msgs.filter(m=>m.on&&m.text&&(!m.from||m.from<=td)&&(!m.to||m.to>=td)).forEach(m=>it.push({kind:"text",text:m.text,fx:m.fx,lbl:m.from?"Zamanlı mesaj":"Sabit mesaj"}));return it}
+let cur=null,pos=0,idx=0,stamp=0,last=performance.now(),mixFlip=false;
+function resetPlay(){cur=null}
+function pick(){
+  if(!panelOn()&&!SIM)return{layer:0,lbl:"Mesai dışı: panel kapalı",off:true};
+  const a=S.ann&&S.ann.until>now()?S.ann:null;
+  if(a&&(a.mode==="loop"||!mixFlip)){mixFlip=true;return{layer:1,lbl:"Anlık duyuru",text:a.text,fx:a.fx}}
+  mixFlip=false;
+  if(breakState())return{layer:2,lbl:"",brk:true};
+  const b=activeBell();if(b)return{layer:2,lbl:"Zil · "+TYPES[b.type],text:b.text,fx:b.fx};
+  const it=loopItems();idx=idx%it.length;const x=it[idx++];
+  return x.kind==="clock"?{layer:4,lbl:"Saat / tarih",clock:true}:{layer:x.lbl==="Zamanlı mesaj"?3:4,lbl:x.lbl,text:x.text,fx:x.fx};
+}
+const PILL={0:["l0","Kapalı"],1:["l1","Duyuru"],2:["l2","Zil"],3:["l3","Mesaj"],4:["l4","Döngü"]};
+function frame(t){const dt=Math.min(0.1,(t-last)/1000);last=t;
+  if(!cur){cur=pick();pos=W;stamp=t;const p=PILL[cur.layer];$("layerPill").className="pill "+p[0];$("layerPill").textContent=p[1];$("layerTxt").textContent=cur.lbl}
+  const age=(t-stamp)/1000;let buf=new Uint8Array(W*H);
+  if(cur.off){if(t-stamp>2000)cur=null}
+  else if(cur.brk){const st=breakState();
+    if(!st)cur=null;
+    else{if(age<0.05){BR.sub=0;BR.start=t}
+      const rotate=st.phase==="brk"&&S.set.brkMsgs&&st.rem>st.warn&&!(S.set.big&&st.rem<=10);
+      if(!rotate){BR.sub=0;buf=renderBreak(st,t)}
+      else if(BR.sub===0){buf=renderBreak(st,t);if(t-BR.start>S.set.brkCount*1000){if(nextBreakItem()){BR.sub=1;BR.pos=W}else BR.start=t}}
+      else{BR.pos-=S.set.speed*dt;buf=renderBreakItem(st,t,BR.text,Math.round(BR.pos));if(BR.pos<-BR.w){BR.sub=0;BR.start=t}}
+      $("layerTxt").textContent=st.phase==="brk"?(st.rem<=st.warn?"Teneffüs · derse az kaldı":BR.sub?"Teneffüs · duyurular (kalan süre altta)":"Teneffüs · geri sayım"):"Ders başladı · flaş uyarısı"}}
+  else if(cur.clock){const c=clockText(),bm=raster(c,fitFont(c));blit(buf,bm,Math.floor((W-bm.w)/2));if(t-stamp>S.set.clock*1000)cur=null}
+  else{const big=raster(cur.text,"F_LARGE"),mid=raster(cur.text);
+    const stat=cur.layer===2&&(big.w<=W||mid.w<=W),bm=stat?(big.w<=W?big:mid):big;
+    if(stat){blit(buf,bm,Math.floor((W-bm.w)/2));if(t-stamp>6000)cur=null}
+    else{pos-=S.set.speed*dt;blit(buf,bm,Math.round(pos));if(pos<-bm.w)cur=null}
+    applyFx(buf,cur&&cur.fx,age)}
+  paint(buf);requestAnimationFrame(frame)}
+setInterval(()=>{$("clock").textContent=nowD().toLocaleTimeString("tr-TR");renderAnn()},1000);
+function renderAll(){renderAnn();renderBells();renderMsgs();renderDuty();renderSet();renderHol();sizeCanvas();resetPlay()}
+addEventListener("resize",sizeCanvas);
+
+
+/* ---------- Firebase (uzaktan kontrol) ---------- */
+let fdb=null,fbLastSave=0,fbSrvOff=0,fbStat=null;
+const fbNow=()=>Date.now()+fbSrvOff;
+function cfgToS(c){c=c||{};return{bells:c.bells||[],msgs:(c.msgs||[]).map(m=>({on:m.on!==false,text:m.text||"",from:m.from||"",to:m.to||"",fx:m.fx||"none"})),
+  duty:(c.duty||[]).map(r=>({date:r.date,t:r.t||"",s1:r.s1||"",s2:r.s2||""})),dutyFmt:c.dutyFmt||"full",
+  hol:Array.isArray(c.hol)?c.hol.map(h=>({name:h.name||"",from:h.from||"",to:h.to||""})):c.hol===false?[]:HOL_MEB.map(h=>({...h})),set:{...SET_DEF,...(c.set||{})},ann:S.ann}}
+async function fbSaveCfg(){const TS=firebase.database.ServerValue.TIMESTAMP;
+  try{await fdb.ref("ledpano/cfg").set(cfgPayload());fbLastSave=Date.now();await fdb.ref("ledpano/rev/cfg").set(TS);toast("Kaydedildi · panel birkaç saniye içinde alır")}
+  catch(e){toast("Kaydedilemedi: "+fbErrTxt(e))}}
+async function fbAnn(a){const TS=firebase.database.ServerValue.TIMESTAMP;
+  try{await fdb.ref("ledpano/ann").set(a?{text:a.text,mode:a.mode,fx:a.fx,dur:a.dur,at:TS}:null);await fdb.ref("ledpano/rev/ann").set(TS);
+    if(a)S.ann={text:a.text,until:fbNow()+a.dur*60000,mode:a.mode,fx:a.fx};return true}
+  catch(e){toast("Gönderilemedi: "+fbErrTxt(e));return false}}
+async function fbCmd(c){const TS=firebase.database.ServerValue.TIMESTAMP;
+  try{await fdb.ref("ledpano/cmd").set({c,t:TS});await fdb.ref("ledpano/rev/cmd").set(TS);return true}
+  catch(e){toast("Gönderilemedi: "+fbErrTxt(e));return false}}
+function fbErrTxt(e){const m=String(e&&(e.code||e.message)||e);
+  if(/permission/i.test(m))return"yetki yok (kullanıcı 'admins' listesinde değil)";
+  if(/wrong-password|invalid-credential|invalid-login|user-not-found|invalid-email/i.test(m))return"e-posta veya şifre hatalı";
+  if(/too-many/i.test(m))return"çok fazla deneme, biraz bekle";if(/network/i.test(m))return"internet bağlantısı yok";return m}
+function fbRenderStatus(){const j=fbStat,el=$("devStats");
+  if(!j){el.innerHTML=`<div class="stat"><span class="dot off"></span><span>Panel buluta henüz hiç bağlanmadı. Paneli yeni yazılımla açınca burada görünecek.</span></div>`;return}
+  const age=Math.max(0,Math.round((fbNow()-(j.seen||0))/1000)),on=age<150;
+  const ago=age<60?age+" sn önce":age<3600?Math.round(age/60)+" dk önce":age<86400?Math.round(age/3600)+" saat önce":new Date(j.seen).toLocaleString("tr-TR");
+  el.innerHTML=[
+   ["Bağlantı",`<span class="dot ${on?"on":"off"}"></span> ${on?"çevrimiçi":"çevrimdışı"} · son: ${ago}`],
+   ["Panel",j.on?"açık":"kapalı ("+esc(j.why||"mesai dışı").toLocaleLowerCase("tr-TR")+")"],
+   ["Saat",(j.now?new Date(j.now*1000).toLocaleString("tr-TR"):"-")+" · RTC "+(j.rtc?"çalışıyor":"yok/ayarsız")],
+   ["Wi-Fi",esc(j.ssid||"-")+" · "+(j.rssi||0)+" dBm"],["IP",`<span class="mono">${esc(j.ip||"-")}</span>`],
+   ["Yayında",j.ann?esc(j.ann)+" ("+Math.ceil((j.annRem||0)/60)+" dk)":"duyuru yok"],
+   ["Nöbetçi",j.duty?esc(j.duty):"bugün yok"],
+   ["Parlaklık",Math.round((j.bright||0)/2.55)+"% · LDR "+(j.ldr??"-")],
+   ["Çalışma süresi",fmtUp(j.up||0)],["Yazılım",esc(j.fw||"-")]
+  ].map(([k,v])=>`<div class="stat"><b>${k}</b><span>${v}</span></div>`).join("")}
+function fbInit(){
+  firebase.initializeApp(window.FB_CFG);fdb=firebase.database();const auth=firebase.auth();
+  fdb.ref(".info/serverTimeOffset").on("value",s=>{fbSrvOff=s.val()||0;OFF=fbSrvOff});
+  $("loginForm").onsubmit=async e=>{e.preventDefault();$("lErr").textContent="";$("lBtn").disabled=true;
+    try{await auth.signInWithEmailAndPassword($("lEmail").value.trim(),$("lPass").value)}catch(err){$("lErr").textContent="Giriş olmadı: "+fbErrTxt(err)}
+    $("lBtn").disabled=false};
+  $("logoutBtn").onclick=()=>auth.signOut().then(()=>location.reload());
+  let started=false;
+  auth.onAuthStateChanged(async u=>{
+    if(!u){$("login").hidden=false;$("logoutBtn").hidden=true;return}
+    $("login").hidden=true;$("logoutBtn").hidden=false;if(started)return;started=true;
+    const n=$("modeNote");n.className="note dev";n.textContent="Buluta bağlı ("+u.email+") · değişiklikler kaydedilir, panel internete bağlıyken birkaç saniye içinde alır.";
+    $("devBtns").hidden=false;$("btnWifi").hidden=true;$("btnShowStatus").hidden=false;$("passCard").hidden=true;$("demoCard").hidden=true;
+    $("btnShowStatus").onclick=async()=>{if(await fbCmd("status"))toast("Panel 10 sn durum bilgisini gösterecek")};
+    try{
+      const c=(await fdb.ref("ledpano/cfg").get()).val();
+      S=cfgToS(c);if(!c)toast("Bulutta henüz ayar yok: panel bağlanınca kendi ayarlarını yükleyecek");
+      renderAll();
+    }catch(err){n.className="note";n.textContent="Veriye erişilemedi: "+fbErrTxt(err);return}
+    fdb.ref("ledpano/rev/cfg").on("value",async s=>{const v=s.val();if(v==null)return;
+      if(typeof v==="string"||Date.now()-fbLastSave>5000){const c=(await fdb.ref("ledpano/cfg").get()).val();if(c){const a=S.ann;S=cfgToS(c);S.ann=a;renderAll()}}});
+    fdb.ref("ledpano/ann").on("value",s=>{const a=s.val();
+      S.ann=a&&a.text?{text:a.text,until:(typeof a.at==="number"?a.at:fbNow())+(a.dur||10)*60000,mode:a.mode||"loop",fx:a.fx||"none"}:null;renderAnn();resetPlay()});
+    fdb.ref("ledpano/status").on("value",s=>{fbStat=s.val();fbRenderStatus()});
+    setInterval(fbRenderStatus,15000);
+  });
+}
+
+/* ---------- Başlangıç: bulut mu, panel mi, demo mu? ---------- */
+(async()=>{
+  if(window.FB_CFG){FBM=true;OFF=0;fbInit();renderAll();requestAnimationFrame(frame);return}
+  try{const r=await fetch("/api/state",{cache:"no-store"});const j=r.ok?await r.json():null;
+    if(j&&j.dev){DEV=true;OFF=j.now*1000-Date.now();
+      const c=j.cfg||{};S={bells:c.bells||[],msgs:c.msgs||[],duty:(c.duty||[]).map(r=>({date:r.date,t:r.t,s1:r.s1||"",s2:r.s2||""})),dutyFmt:c.dutyFmt||"full",hol:Array.isArray(c.hol)?c.hol:c.hol===false?[]:HOL_MEB.map(h=>({...h})),set:{...SET_DEF,...(c.set||{})},ann:null};setAnnFromDev(j.ann);
+      const n=$("modeNote");n.className="note dev";n.textContent="Panele bağlı · değişiklikler otomatik olarak panele kaydedilir.";
+      $("devBtns").hidden=false;$("passCard").hidden=false;$("demoCard").hidden=true;pollStatus();setInterval(pollStatus,10000)}}
+  catch(e){}
+  if(!DEV){try{const s=JSON.parse(localStorage.getItem(KEY));if(s){S=s;S.set={...SET_DEF,...S.set};if(!Array.isArray(S.hol))S.hol=HOL_MEB.map(h=>({...h}))}}catch(e){}}
+  renderAll();requestAnimationFrame(frame);
+})();
+</script>
+</html>
