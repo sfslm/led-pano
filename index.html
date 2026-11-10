@@ -52,6 +52,14 @@ textarea{resize:vertical;min-height:70px}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn.small{padding:4px 10px;font-size:13px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
+.picrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
+.chip.pic{display:inline-flex;align-items:center;gap:6px}
+.chip.pic canvas{height:16px;image-rendering:pixelated;border-radius:2px}
+.piclist{display:flex;flex-direction:column;gap:8px}
+.picitem{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--line)}
+.picitem canvas{height:40px;max-width:100%;image-rendering:pixelated;border-radius:4px;background:#140d0c}
+.picitem b{font-family:ui-monospace,Menlo,Consolas,monospace;min-width:110px}
+.picprev{width:100%;max-width:640px;height:auto;border-radius:6px;background:#140d0c;display:block}
 .chip{font-size:13px;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--bg);cursor:pointer;color:var(--fg)}
 .active-ann{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border:1px dashed var(--accent);border-radius:6px;padding:10px}
 .tbl{overflow-x:auto}
@@ -107,6 +115,7 @@ tr.today td{background:var(--accent-soft)}
     <button role="tab" data-tab="bell">Zil Programı</button>
     <button role="tab" data-tab="msg">Mesajlar</button>
     <button role="tab" data-tab="duty">Nöbet Listesi</button>
+    <button role="tab" data-tab="pic">Semboller</button>
     <button role="tab" data-tab="set">Ayarlar</button>
   </nav>
 
@@ -116,6 +125,7 @@ tr.today td{background:var(--accent-soft)}
       <h2>Duyuru gönder</h2>
       <label>Metin<textarea id="annText" maxlength="200" placeholder="Örn: Veli toplantısı 15:00'te konferans salonunda"></textarea></label>
       <div class="chips" id="annQuick"></div>
+      <div class="picrow" data-pictarget="annText"><span>Sembol ekle:</span></div>
       <div class="row">
         <label>Süre<select id="annDur"><option value="5">5 dakika</option><option value="10" selected>10 dakika</option><option value="30">30 dakika</option><option value="60">1 saat</option><option value="240">4 saat</option></select></label>
         <label>Efekt<select id="annFx"></select></label>
@@ -134,6 +144,7 @@ tr.today td{background:var(--accent-soft)}
       <div class="tbl"><table>
         <thead><tr><th>Saat</th><th>Olay</th><th>Panel mesajı</th><th>Süre (dk)</th><th>Efekt</th><th></th></tr></thead>
         <tbody id="bellBody"></tbody></table></div>
+      <div class="picrow" data-pictarget="bell"><span>Seçili zil mesajına sembol ekle:</span></div>
       <div class="row"><button class="btn" id="bellAdd">Olay ekle</button><button class="btn" id="bellGen">40+10 dk programını oluştur</button><span></span></div>
     </div>
     <div class="card">
@@ -164,7 +175,37 @@ tr.today td{background:var(--accent-soft)}
       <div class="tbl"><table>
         <thead><tr><th>Aktif</th><th>Mesaj</th><th>Başlangıç</th><th>Bitiş</th><th>Efekt</th><th></th></tr></thead>
         <tbody id="msgBody"></tbody></table></div>
+      <div class="picrow" data-pictarget="msg"><span>Seçili mesaja sembol ekle:</span></div>
       <div class="row"><button class="btn" id="msgAdd">Mesaj ekle</button><span></span></div>
+    </div>
+  </section>
+
+  <!-- SEMBOLLER -->
+  <section class="tab" id="tab-pic" hidden>
+    <div class="card">
+      <h2>Semboller</h2>
+      <p class="muted" style="margin:0">Duyuru, mesaj veya zil metnine sembolün adını süslü parantezle yazınca panelde resim olarak çizilir. Örnek: <span class="mono">{BAYRAK} 29 EKİM CUMHURİYET BAYRAMI KUTLU OLSUN {BAYRAK}</span>. Metin kutularının altındaki sembol düğmeleri bunu senin yerine yazar.</p>
+      <div class="piclist" id="picList"></div>
+    </div>
+    <div class="card">
+      <h2>Resimden sembol oluştur</h2>
+      <p class="muted" style="margin:0">Panel 16 piksel yüksekliğinde ve tek renk. En iyi sonucu siyah-beyaz, sade resimler verir: imza, siluet, logo, amblem. Fotoğraflar bu boyutta seçilmez. Resim telefonda işlenir, sadece sonuçtaki 16 piksellik desen kaydedilir.</p>
+      <div class="row">
+        <label>Resim<input type="file" id="picFile" accept="image/*"></label>
+        <label>Sembol adı<input id="picName" maxlength="16" placeholder="Örn: ATATÜRK"></label>
+      </div>
+      <div class="row">
+        <label>Genişlik: <span id="picWv" class="mono">-</span> piksel<input type="range" id="picW" min="6" max="128" value="32"></label>
+        <label>Eşik (koyuluk)<input type="range" id="picTh" min="10" max="245" value="128"></label>
+        <label class="chk"><input type="checkbox" id="picInv">Ters çevir (açık yerler yansın)</label>
+      </div>
+      <canvas id="picPrev" class="picprev" width="640" height="80"></canvas>
+      <div class="row"><button class="btn primary" id="picAdd" disabled>Sembolü kaydet</button><span class="muted" id="picInfo"></span></div>
+    </div>
+    <div class="card">
+      <h2>Milli ve özel günler</h2>
+      <p class="muted" style="margin:0">Önümüzdeki milli bayram, anma ve özel günler için tarihli mesajları Mesajlar sekmesine ekler. Her mesaj sadece kendi tarihinde görünür. Eklenen mesajları sonra Mesajlar sekmesinden düzenleyebilirsin. Panel tatil günlerinde kapalı olduğu için bayram mesajları tatilden önceki günlere de konur.</p>
+      <div class="row"><button class="btn" id="natAdd">Milli gün mesajlarını ekle</button><span></span></div>
     </div>
   </section>
 
@@ -286,7 +327,7 @@ function genBells(){
 }
 const SET_DEF={mod:4,speed:40,clock:5,day:80,night:35,nightAt:"18:00",onAt:"07:30",offAt:"18:00",wkOff:true,ldr:false,rev:false,brk:"bar",warn:60,flash:3,big:true,brkMsgs:true,brkCount:5};
 function demoDefault(){
-  const t=new Date(),D={ann:null,bells:genBells(),
+  const t=new Date(),D={ann:null,pics:[],bells:genBells(),
     msgs:[{on:true,text:"EREĞLİ MTAL ELEKTRİK-ELEKTRONİK TEKNOLOJİSİ ALANI",from:"",to:"",fx:"none"},
           {on:true,text:"ATÖLYEDE İŞ GÜVENLİĞİ KURALLARINA UYALIM",from:"",to:"",fx:"border"},
           {on:true,text:"TEKNOFEST BAŞVURULARI İÇİN ALAN ŞEFLİĞİNE BAŞVURUNUZ",from:iso(t),to:iso(new Date(t.getTime()+14*864e5)),fx:"none"}],
@@ -307,18 +348,25 @@ let S=demoDefault();
 
 /* ---------- Kaydetme ---------- */
 let saveTimer=null;
-function cfgPayload(){return{bells:S.bells,msgs:S.msgs,duty:S.duty.map(r=>({date:r.date,t:r.t,s1:r.s1,s2:r.s2,p:dutyText(r)})),dutyFmt:S.dutyFmt,hol:S.hol&&S.hol.length?S.hol:false,set:S.set}}
+function cfgPayload(){return{pics:S.pics&&S.pics.length?S.pics:false,bells:S.bells,msgs:S.msgs,duty:S.duty.map(r=>({date:r.date,t:r.t,s1:r.s1,s2:r.s2,p:dutyText(r)})),dutyFmt:S.dutyFmt,hol:S.hol&&S.hol.length?S.hol:false,set:S.set}}
 function save(){
   if(FBM){clearTimeout(saveTimer);saveTimer=setTimeout(fbSaveCfg,700);return}
   if(!DEV){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}return}
   clearTimeout(saveTimer);
   saveTimer=setTimeout(async()=>{
-    const body=JSON.stringify({bells:S.bells,msgs:S.msgs,duty:S.duty.map(r=>({date:r.date,t:r.t,s1:r.s1,s2:r.s2,p:dutyText(r)})),dutyFmt:S.dutyFmt,hol:S.hol,set:S.set});
+    const body=JSON.stringify({bells:S.bells,msgs:S.msgs,duty:S.duty.map(r=>({date:r.date,t:r.t,s1:r.s1,s2:r.s2,p:dutyText(r)})),dutyFmt:S.dutyFmt,hol:S.hol,pics:S.pics||[],set:S.set});
     try{const r=await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body});
       if(!r.ok)throw new Error(await r.text()||r.status);toast("Panele kaydedildi")}
     catch(e){toast("Kaydedilemedi: "+e.message)}
   },700);
 }
+
+/* ---------- Saat/tarih çarkı: çevirirken değil, kapatınca (Onay/Bitti) kaydet ---------- */
+const isTD=el=>el&&el.tagName==="INPUT"&&(el.type==="time"||el.type==="date");
+document.addEventListener("change",e=>{const el=e.target;      // çark açıkken gelen ara değerleri beklet
+  if(isTD(el)&&!e._ok&&document.activeElement===el){e.stopImmediatePropagation();el._pend=true}},true);
+document.addEventListener("focusout",e=>{const el=e.target;if(!isTD(el)||!el._pend)return;el._pend=false;
+  const ev=new Event("change",{bubbles:true});ev._ok=true;el.dispatchEvent(ev)},true);
 
 /* ---------- Sekmeler ---------- */
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
@@ -490,16 +538,96 @@ $("tplDl").onclick=async()=>{const [y,mo]=($("tplMonth").value||iso(nowD()).slic
     const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=fn+".csv";a.click();
     toast("İnternet yok: şablon CSV olarak indirildi (Excel'de açılır)")}};
 
+/* ---------- Semboller sekmesi ---------- */
+function drawPic(cv,pic,cell=4){const w=pic.w;cv.width=w*cell;cv.height=16*cell;const c=cv.getContext("2d");c.fillStyle="#140d0c";c.fillRect(0,0,cv.width,cv.height);
+  for(let x=0;x<w;x++)for(let y=0;y<16;y++){c.fillStyle=(pic.cols[x]>>y)&1?"#ff3b2b":"#2a1614";c.beginPath();c.arc((x+.5)*cell,(y+.5)*cell,cell*.38,0,7);c.fill()}}
+let picTargets={};                       // her kartta en son tıklanan metin kutusu
+document.addEventListener("focusin",e=>{const el=e.target;
+  if(el.matches&&el.matches('#msgBody input[data-k="text"]'))picTargets.msg=el;
+  if(el.matches&&el.matches('#bellBody input[data-k="text"]'))picTargets.bell=el});
+function insertToken(el,tok){const a=el.selectionStart??el.value.length,b=el.selectionEnd??a;
+  el.value=el.value.slice(0,a)+tok+el.value.slice(b);el.focus();try{el.setSelectionRange(a+tok.length,a+tok.length)}catch(e){}
+  if(el.id!=="annText")el.dispatchEvent(new Event("change",{bubbles:true}))}
+function renderPicChips(){const P=picMap();
+  document.querySelectorAll(".picrow").forEach(row=>{row.querySelectorAll("button").forEach(b=>b.remove());
+    for(const nm of Object.keys(P)){const b=document.createElement("button");b.type="button";b.className="chip pic";
+      const cv=document.createElement("canvas");drawPic(cv,P[nm],2);b.append(cv,document.createTextNode(nm));
+      b.onclick=()=>{const t=row.dataset.pictarget,tok="{"+nm+"}";
+        if(t==="annText")return insertToken($("annText"),tok);
+        const el=picTargets[t];if(!el||!document.body.contains(el)){toast("Önce sembol eklenecek metin kutusuna dokun");return}
+        insertToken(el,tok)};
+      row.append(b)}})}
+function renderPics(){const P=picMap();
+  $("picList").innerHTML="";
+  for(const nm of Object.keys(P)){const d=document.createElement("div");d.className="picitem";const cv=document.createElement("canvas");drawPic(cv,P[nm],4);
+    const b=document.createElement("b");b.textContent="{"+nm+"}";const info=document.createElement("span");info.className="muted";info.textContent=P[nm].w+" piksel"+(nm==="BAYRAK"?" · yerleşik":"");
+    d.append(cv,b,info);
+    if(nm!=="BAYRAK"){const del=document.createElement("button");del.className="btn small";del.textContent="Sil";
+      del.onclick=()=>{S.pics=S.pics.filter(p=>p.name!==nm);save();renderPics();resetPlay()};d.append(del)}
+    $("picList").append(d)}
+  renderPicChips()}
+let picImg=null;
+function picBits(){if(!picImg)return null;const w=+$("picW").value,c=document.createElement("canvas");c.width=w;c.height=16;
+  const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,16);x.imageSmoothingQuality="high";x.drawImage(picImg,0,0,w,16);
+  const d=x.getImageData(0,0,w,16).data,th=+$("picTh").value,inv=$("picInv").checked,cols=[];
+  for(let i=0;i<w;i++){let col=0;for(let y=0;y<16;y++){const k=(y*w+i)*4,l=.299*d[k]+.587*d[k+1]+.114*d[k+2];if((l<th)!==inv)col|=1<<y}cols.push(col)}
+  return{w,cols}}
+function picPreview(){const p=picBits();$("picWv").textContent=$("picW").value;$("picAdd").disabled=!p;if(!p)return;
+  const cv=$("picPrev"),cell=Math.max(3,Math.min(10,Math.floor(640/p.w)));drawPic(cv,p,cell)}
+$("picFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();
+  im.onload=()=>{picImg=im;$("picW").value=Math.max(6,Math.min(128,Math.round(16*im.naturalWidth/im.naturalHeight)));
+    if(!$("picName").value)$("picName").value=trUp(f.name.replace(/\.[^.]+$/,"")).replace(/[^A-ZÇĞİÖŞÜ0-9]/g,"").slice(0,16);picPreview();URL.revokeObjectURL(im.src)};
+  im.onerror=()=>toast("Resim açılamadı");im.src=URL.createObjectURL(f)};
+["picW","picTh","picInv"].forEach(id=>$(id).addEventListener("input",picPreview));
+$("picAdd").onclick=()=>{const p=picBits();if(!p)return;
+  const nm=trUp($("picName").value).replace(/[^A-ZÇĞİÖŞÜ0-9]/g,"").slice(0,16);
+  if(!nm){toast("Sembole bir ad ver (harf ve rakam)");return}if(nm==="BAYRAK"){toast("BAYRAK adı yerleşik sembolün");return}
+  S.pics=(S.pics||[]).filter(x=>x.name!==nm);if(S.pics.length>=11){toast("En fazla 11 sembol yüklenebilir");return}
+  S.pics.push({name:nm,w:p.w,d:p.cols.map(c=>c.toString(16).padStart(4,"0")).join("")});
+  save();renderPics();resetPlay();$("picInfo").textContent="{"+nm+"} kaydedildi. Metinde {"+nm+"} yazarak kullanabilirsin."};
+/* Milli ve özel günler: bugünden sonraki ilk tarihler */
+$("natAdd").onclick=()=>{const td=iso(nowD()),y=nowD().getFullYear();
+  const nx=(m,d)=>{let s=`${y}-${m}-${d}`;if(s<td)s=`${y+1}-${m}-${d}`;return s};
+  const sh=(s,days)=>{const t=new Date(s+"T12:00");t.setDate(t.getDate()+days);return iso(t)};
+  const L=[
+   ["10","29",-4,0,"{BAYRAK} 29 EKİM CUMHURİYET BAYRAMIMIZ KUTLU OLSUN {BAYRAK}"],
+   ["11","10",0,0,"{BAYRAK} 10 KASIM · ULU ÖNDER MUSTAFA KEMAL ATATÜRK'Ü SAYGI, SEVGİ VE ÖZLEMLE ANIYORUZ {BAYRAK}"],
+   ["11","24",0,0,"24 KASIM ÖĞRETMENLER GÜNÜ KUTLU OLSUN"],
+   ["03","12",0,0,"{BAYRAK} 12 MART İSTİKLAL MARŞI'NIN KABULÜ VE MEHMET AKİF ERSOY'U ANMA GÜNÜ {BAYRAK}"],
+   ["03","18",0,0,"{BAYRAK} 18 MART ÇANAKKALE ZAFERİ VE ŞEHİTLERİ ANMA GÜNÜ · ŞEHİTLERİMİZİ RAHMETLE ANIYORUZ {BAYRAK}"],
+   ["04","23",-3,0,"{BAYRAK} 23 NİSAN ULUSAL EGEMENLİK VE ÇOCUK BAYRAMI KUTLU OLSUN {BAYRAK}"],
+   ["05","19",-7,1,"{BAYRAK} 19 MAYIS ATATÜRK'Ü ANMA, GENÇLİK VE SPOR BAYRAMI KUTLU OLSUN {BAYRAK}"]];
+  const have=new Set(S.msgs.map(m=>m.text));let n=0;
+  for(const [m,d,b,a,text] of L){if(have.has(text))continue;if(S.msgs.length>=20){toast("Mesaj sınırı (20) doldu");break}
+    const day=nx(m,d);S.msgs.push({on:true,text,from:sh(day,b),to:sh(day,a),fx:"border"});n++}
+  S.msgs.sort((p,q)=>(p.from||"0").localeCompare(q.from||"0"));save();renderMsgs();resetPlay();
+  toast(n?n+" milli gün mesajı eklendi (Mesajlar sekmesinde)":"Bu mesajlar zaten ekli")};
+
 /* ---------- LED önizleme (paneldeki fontun aynısı) ---------- */
 const cv=$("led"),ctx=cv.getContext("2d");let W=128;const H=16;
 function sizeCanvas(){W=S.set.mod*32;const cw=cv.clientWidth||900;const cell=cw/W;cv.width=Math.round(cw*devicePixelRatio);cv.height=Math.round(cell*H*devicePixelRatio);cv.style.height=(cell*H)+"px"}
 const cache=new Map();
 function raster(text,fn="F_MAIN"){const key=fn+"|"+text;if(cache.has(key))return cache.get(key);
-  const F=FONT[fn],M=FONT.F_MAIN,cols=[];
-  for(const ch of text){const cp=ch.codePointAt(0);const g=F[cp]||M[cp]||M[63];cols.push(...g,0)}
+  const F=FONT[fn],M=FONT.F_MAIN,cols=[],P=picMap();
+  for(let k=0;k<text.length;){
+    if(text[k]==="{"){const e=text.indexOf("}",k+1);if(e>k+1&&P[text.slice(k+1,e)]){cols.push(...P[text.slice(k+1,e)].cols,0);k=e+1;continue}}
+    const cp=text.codePointAt(k);const g=F[cp]||M[cp]||M[63];cols.push(...g,0);k+=cp>0xffff?2:1}
   if(cols.length)cols.pop();const w=cols.length,bits=new Uint8Array(w*H);
   for(let x=0;x<w;x++)for(let y=0;y<H;y++)bits[y*w+x]=(cols[x]>>y)&1;
   const r={w,bits};if(cache.size>200)cache.clear();cache.set(key,r);return r}
+/* Semboller: yerleşik bayrak (Türk Bayrağı Tüzüğü oranları) + kullanıcı resimleri */
+function makeFlag(){const G=16,ox=.5*G,ix=ox+.0625*G,ro=.25*G,ri=.2*G,cy=G/2,sx=ix+G/3+.125*G,sr=.125*G*1.4,cols=[];
+  const vx=[],vy=[];for(let k=0;k<10;k++){const a=Math.PI+k*Math.PI/5,r=k&1?sr*.382:sr;vx.push(sx+r*Math.cos(a));vy.push(cy+r*Math.sin(a))}
+  const inStar=(px,py)=>{let c=false;for(let i=0,j=9;i<10;j=i++)if((vy[i]>py)!==(vy[j]>py)&&px<(vx[j]-vx[i])*(py-vy[i])/(vy[j]-vy[i])+vx[i])c=!c;return c};
+  for(let x=0;x<24;x++){let c=0;for(let y=0;y<16;y++){let w=0;
+    for(let a=0;a<4;a++)for(let b=0;b<4;b++){const X=x+(b+.5)/4,Y=y+(a+.5)/4;
+      if(((X-ox)**2+(Y-cy)**2<=ro*ro&&(X-ix)**2+(Y-cy)**2>ri*ri)||inStar(X,Y))w++}
+    if(w<6)c|=1<<y}cols.push(c)}return{w:24,cols}}
+const FLAG=makeFlag();
+let PMAP=null,PKEY="";
+function picMap(){const k=JSON.stringify(S.pics||[]);if(PMAP&&k===PKEY)return PMAP;PKEY=k;PMAP={BAYRAK:FLAG};
+  for(const p of S.pics||[]){const cols=[];for(let i=0;i+4<=p.d.length;i+=4)cols.push(parseInt(p.d.slice(i,i+4),16));if(p.name!=="BAYRAK")PMAP[p.name]={w:cols.length,cols}}
+  cache.clear();return PMAP}
 const hm2m=s=>{const[a,b]=String(s||"0:0").split(":").map(Number);return a*60+b};
 function holToday(){const td=iso(nowD());return(S.hol||[]).find(h=>h.from&&h.from<=td&&(h.to||h.from)>=td)}
 function panelOn(){const d=nowD(),m=d.getHours()*60+d.getMinutes();if(holToday())return false;if(S.set.wkOff&&(d.getDay()===0||d.getDay()===6))return false;return m>=hm2m(S.set.onAt)&&m<hm2m(S.set.offAt)}
@@ -567,18 +695,25 @@ function loopItems(){const td=iso(nowD()),it=[{kind:"clock"}];const r=S.duty.fin
   S.msgs.filter(m=>m.on&&m.text&&(!m.from||m.from<=td)&&(!m.to||m.to>=td)).forEach(m=>it.push({kind:"text",text:m.text,fx:m.fx,lbl:m.from?"Zamanlı mesaj":"Sabit mesaj"}));return it}
 let cur=null,pos=0,idx=0,stamp=0,last=performance.now(),mixFlip=false;
 function resetPlay(){cur=null}
+/* Derse az kaldı / son 10 sn / ders başı flaşı / dersin ilk 60 sn'si: duyuru bekler */
+function lessonUrgent(st){
+  if(st)return st.phase==="flash"||st.rem<=st.warn||(S.set.big&&st.rem<=10);
+  const n=nowD();if(n.getDay()===0||n.getDay()===6)return false;const t=n.getHours()*3600+n.getMinutes()*60+n.getSeconds();
+  return S.bells.some(b=>b.type==="ders"&&t>=hm2m(b.t)*60&&t<hm2m(b.t)*60+60)}
+let urgChk=0;
 function pick(){
   if(!panelOn()&&!SIM)return{layer:0,lbl:"Mesai dışı: panel kapalı",off:true};
-  const a=S.ann&&S.ann.until>now()?S.ann:null;
-  if(a&&(a.mode==="loop"||!mixFlip)){mixFlip=true;return{layer:1,lbl:"Anlık duyuru",text:a.text,fx:a.fx}}
+  const a=S.ann&&S.ann.until>now()?S.ann:null,st=breakState(),urg=lessonUrgent(st);
+  if(st&&(urg||S.set.brkMsgs||!a))return{layer:2,lbl:"",brk:true};
+  if(!urg&&a&&(a.mode==="loop"||!mixFlip)){mixFlip=true;return{layer:1,lbl:"Anlık duyuru",text:a.text,fx:a.fx}}
   mixFlip=false;
-  if(breakState())return{layer:2,lbl:"",brk:true};
   const b=activeBell();if(b)return{layer:2,lbl:"Zil · "+TYPES[b.type],text:b.text,fx:b.fx};
   const it=loopItems();idx=idx%it.length;const x=it[idx++];
   return x.kind==="clock"?{layer:4,lbl:"Saat / tarih",clock:true}:{layer:x.lbl==="Zamanlı mesaj"?3:4,lbl:x.lbl,text:x.text,fx:x.fx};
 }
 const PILL={0:["l0","Kapalı"],1:["l1","Duyuru"],2:["l2","Zil"],3:["l3","Mesaj"],4:["l4","Döngü"]};
 function frame(t){const dt=Math.min(0.1,(t-last)/1000);last=t;
+  if(cur&&!cur.off&&!cur.brk&&(cur.clock||cur.layer!==2)&&t-urgChk>200){urgChk=t;if(lessonUrgent(breakState()))cur=null}
   if(!cur){cur=pick();pos=W;stamp=t;const p=PILL[cur.layer];$("layerPill").className="pill "+p[0];$("layerPill").textContent=p[1];$("layerTxt").textContent=cur.lbl}
   const age=(t-stamp)/1000;let buf=new Uint8Array(W*H);
   if(cur.off){if(t-stamp>2000)cur=null}
@@ -598,7 +733,7 @@ function frame(t){const dt=Math.min(0.1,(t-last)/1000);last=t;
     applyFx(buf,cur&&cur.fx,age)}
   paint(buf);requestAnimationFrame(frame)}
 setInterval(()=>{$("clock").textContent=nowD().toLocaleTimeString("tr-TR");renderAnn()},1000);
-function renderAll(){renderAnn();renderBells();renderMsgs();renderDuty();renderSet();renderHol();sizeCanvas();resetPlay()}
+function renderAll(){renderAnn();renderBells();renderMsgs();renderDuty();renderSet();renderHol();renderPics();sizeCanvas();resetPlay()}
 addEventListener("resize",sizeCanvas);
 
 
@@ -607,7 +742,7 @@ let fdb=null,fbLastSave=0,fbSrvOff=0,fbStat=null;
 const fbNow=()=>Date.now()+fbSrvOff;
 function cfgToS(c){c=c||{};return{bells:c.bells||[],msgs:(c.msgs||[]).map(m=>({on:m.on!==false,text:m.text||"",from:m.from||"",to:m.to||"",fx:m.fx||"none"})),
   duty:(c.duty||[]).map(r=>({date:r.date,t:r.t||"",s1:r.s1||"",s2:r.s2||""})),dutyFmt:c.dutyFmt||"full",
-  hol:Array.isArray(c.hol)?c.hol.map(h=>({name:h.name||"",from:h.from||"",to:h.to||""})):c.hol===false?[]:HOL_MEB.map(h=>({...h})),set:{...SET_DEF,...(c.set||{})},ann:S.ann}}
+  hol:Array.isArray(c.hol)?c.hol.map(h=>({name:h.name||"",from:h.from||"",to:h.to||""})):c.hol===false?[]:HOL_MEB.map(h=>({...h})),pics:Array.isArray(c.pics)?c.pics.map(p=>({name:p.name,w:p.w,d:p.d})):[],set:{...SET_DEF,...(c.set||{})},ann:S.ann}}
 async function fbSaveCfg(){const TS=firebase.database.ServerValue.TIMESTAMP;
   try{await fdb.ref("ledpano/cfg").set(cfgPayload());fbLastSave=Date.now();await fdb.ref("ledpano/rev/cfg").set(TS);toast("Kaydedildi · panel birkaç saniye içinde alır")}
   catch(e){toast("Kaydedilemedi: "+fbErrTxt(e))}}
@@ -669,11 +804,11 @@ function fbInit(){
   if(window.FB_CFG){FBM=true;OFF=0;fbInit();renderAll();requestAnimationFrame(frame);return}
   try{const r=await fetch("/api/state",{cache:"no-store"});const j=r.ok?await r.json():null;
     if(j&&j.dev){DEV=true;OFF=j.now*1000-Date.now();
-      const c=j.cfg||{};S={bells:c.bells||[],msgs:c.msgs||[],duty:(c.duty||[]).map(r=>({date:r.date,t:r.t,s1:r.s1||"",s2:r.s2||""})),dutyFmt:c.dutyFmt||"full",hol:Array.isArray(c.hol)?c.hol:c.hol===false?[]:HOL_MEB.map(h=>({...h})),set:{...SET_DEF,...(c.set||{})},ann:null};setAnnFromDev(j.ann);
+      const c=j.cfg||{};S={bells:c.bells||[],msgs:c.msgs||[],duty:(c.duty||[]).map(r=>({date:r.date,t:r.t,s1:r.s1||"",s2:r.s2||""})),dutyFmt:c.dutyFmt||"full",hol:Array.isArray(c.hol)?c.hol:c.hol===false?[]:HOL_MEB.map(h=>({...h})),pics:Array.isArray(c.pics)?c.pics:[],set:{...SET_DEF,...(c.set||{})},ann:null};setAnnFromDev(j.ann);
       const n=$("modeNote");n.className="note dev";n.textContent="Panele bağlı · değişiklikler otomatik olarak panele kaydedilir.";
       $("devBtns").hidden=false;$("passCard").hidden=false;$("demoCard").hidden=true;pollStatus();setInterval(pollStatus,10000)}}
   catch(e){}
-  if(!DEV){try{const s=JSON.parse(localStorage.getItem(KEY));if(s){S=s;S.set={...SET_DEF,...S.set};if(!Array.isArray(S.hol))S.hol=HOL_MEB.map(h=>({...h}))}}catch(e){}}
+  if(!DEV){try{const s=JSON.parse(localStorage.getItem(KEY));if(s){S=s;S.set={...SET_DEF,...S.set};if(!Array.isArray(S.pics))S.pics=[];if(!Array.isArray(S.hol))S.hol=HOL_MEB.map(h=>({...h}))}}catch(e){}}
   renderAll();requestAnimationFrame(frame);
 })();
 </script>
