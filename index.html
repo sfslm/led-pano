@@ -767,7 +767,7 @@ $("otaFile").onchange=async e=>{const f=e.target.files[0];otaBin=null;$("otaGo")
 $("otaGo").onclick=async()=>{if(!otaBin||!FBM)return;const b=$("otaGo");
   const age=fbStat?Math.round((fbNow()-(fbStat.seen||0))/1000):1e9;
   if(age>150&&!confirm("Panel şu an çevrimdışı görünüyor. Dosya yüklenecek ama panel ancak bağlıyken güncelleme komutunu alabilir. Devam edilsin mi?"))return;
-  b.disabled=true;const C=32768,u=new Uint8Array(otaBin.buf),n=Math.ceil(u.length/C),TS=firebase.database.ServerValue.TIMESTAMP;
+  b.disabled=true;const C=16384,u=new Uint8Array(otaBin.buf),n=Math.ceil(u.length/C),TS=firebase.database.ServerValue.TIMESTAMP;
   try{
     await fdb.ref("ledpano/fw").set(null);
     for(let i=0;i<n;i++){const part=u.subarray(i*C,(i+1)*C);let bin="";for(let k=0;k<part.length;k+=8192)bin+=String.fromCharCode.apply(null,part.subarray(k,k+8192));
