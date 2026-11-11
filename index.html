@@ -275,6 +275,20 @@ tr.today td{background:var(--accent-soft)}
       </div>
       <p class="muted" style="margin:0">Panel köşesindeki tek piksel: saniyede bir yanıp sönüyorsa Wi-Fi yok, iki saniyede bir kısa yanıyorsa internet yok. Karttaki BOOT tuşuna kısa basınca panel 10 saniye durum bilgisini yazar.</p>
     </div>
+    <div class="card" id="otaCard">
+      <h2>Uzaktan yazılım güncelleme</h2>
+      <p class="muted" style="margin:0" id="otaNote">Bu özellik buluta bağlı kontrol sayfasında çalışır (orhanakgun.tr/led-pano).</p>
+      <ol class="muted" style="margin:0;padding-left:20px;line-height:1.6">
+        <li>Arduino IDE'de <b>Sketch → Export Compiled Binary</b> (Derlenmiş Binary'yi Dışa Aktar). Partition Scheme yine <b>Minimal SPIFFS</b> olmalı.</li>
+        <li>Sketch klasöründe <span class="mono">build/esp32.esp32.esp32/</span> içinde oluşan <span class="mono">LedPano.ino.bin</span> dosyasını seç. <span class="mono">merged</span>, <span class="mono">bootloader</span>, <span class="mono">partitions</span> dosyalarını değil.</li>
+        <li><b>Panele gönder</b>'e bas. Panel internete bağlıysa dosyayı indirir, kontrol eder, kurar ve yeniden başlar.</li>
+      </ol>
+      <div class="row"><label>Yazılım dosyası (.bin)<input type="file" id="otaFile" accept=".bin,application/octet-stream"></label></div>
+      <div id="otaInfo"></div>
+      <div class="row"><button class="btn primary" id="otaGo" disabled>Panele gönder ve güncelle</button><span></span></div>
+      <div id="otaProg" class="muted"></div>
+      <p class="muted" style="margin:0">Yeni yazılım açıldıktan sonra buluta bağlanamazsa ya da sürekli yeniden başlarsa panel bir sonraki açılışta kendiliğinden eski yazılıma döner. Güncelleme sırasında panelde ilerleme yüzdesi kayar, o sırada elektriği kesme.</p>
+    </div>
     <div class="card" id="passCard" hidden>
       <h2>Yönetici şifresi</h2>
       <p class="muted" style="margin:0">Kullanıcı adı: <span class="mono">admin</span>. İlk şifre <span class="mono">ledpano</span>, ilk girişten sonra değiştir. Aynı şifre kablosuz yazılım güncellemesinde (OTA) de kullanılır.</p>
@@ -737,6 +751,41 @@ function renderAll(){renderAnn();renderBells();renderMsgs();renderDuty();renderS
 addEventListener("resize",sizeCanvas);
 
 
+/* ---------- Uzaktan yazılım güncelleme ---------- */
+let otaBin=null;
+const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
+$("otaFile").onchange=async e=>{const f=e.target.files[0];otaBin=null;$("otaGo").disabled=true;$("otaInfo").innerHTML="";if(!f)return;
+  const buf=await f.arrayBuffer(),u=new Uint8Array(buf);let err="";
+  if(u[0]===0xFF&&buf.byteLength>3e6)err="Bu merged.bin. Aynı klasördeki LedPano.ino.bin dosyasını seç.";
+  else if(u[0]===0xAA)err="Bu partitions.bin. LedPano.ino.bin dosyasını seç.";
+  else if(u[0]!==0xE9)err="Bu bir ESP32 yazılım dosyası değil.";
+  else if(buf.byteLength<200000)err="Dosya çok küçük (bootloader.bin olabilir). LedPano.ino.bin dosyasını seç.";
+  else if(buf.byteLength>1966080)err="Dosya 1,9 MB'tan büyük. Partition Scheme 'Minimal SPIFFS' olmalı.";
+  const txt=new TextDecoder("latin1").decode(u),m=txt.match(/LedPano \d+\.\d+[a-z0-9.]*/),ver=m?m[0]:"";
+  if(!err&&!ver)err="Dosyada LedPano yazılımı bulunamadı. Doğru projeyi derlediğinden emin ol.";
+  if(err){$("otaInfo").innerHTML=`<p style="color:var(--bad);margin:0">${err}</p>`;return}
+  const sha=hex(await crypto.subtle.digest("SHA-256",buf));
+  otaBin={buf,ver,sha,name:f.name};
+  $("otaInfo").innerHTML=`<p style="margin:0">Dosyadaki sürüm: <b>${esc(ver)}</b> · ${(buf.byteLength/1024).toFixed(0)} KB${fbStat&&fbStat.fw?" · paneldeki sürüm: "+esc(fbStat.fw):""}</p>`;
+  $("otaGo").disabled=!FBM};
+$("otaGo").onclick=async()=>{if(!otaBin||!FBM)return;const b=$("otaGo");
+  const age=fbStat?Math.round((fbNow()-(fbStat.seen||0))/1000):1e9;
+  if(age>150&&!confirm("Panel şu an çevrimdışı görünüyor. Dosya yüklenecek ama panel ancak bağlıyken güncelleme komutunu alabilir. Devam edilsin mi?"))return;
+  b.disabled=true;const C=32768,u=new Uint8Array(otaBin.buf),n=Math.ceil(u.length/C),TS=firebase.database.ServerValue.TIMESTAMP;
+  try{
+    await fdb.ref("ledpano/fw").set(null);
+    for(let i=0;i<n;i++){const part=u.subarray(i*C,(i+1)*C);let bin="";for(let k=0;k<part.length;k+=8192)bin+=String.fromCharCode.apply(null,part.subarray(k,k+8192));
+      await fdb.ref("ledpano/fw/c/"+i).set(btoa(bin));$("otaProg").textContent=`Buluta yükleniyor: %${Math.round((i+1)*100/n)}`}
+    await fdb.ref("ledpano/fw/info").set({ver:otaBin.ver,size:u.length,sha:otaBin.sha,n,at:TS});
+    await fdb.ref("ledpano/cmd").set({c:"ota",n,size:u.length,sha:otaBin.sha,ver:otaBin.ver,t:TS});
+    await fdb.ref("ledpano/rev/cmd").set(TS);
+    $("otaProg").textContent="Dosya buluta yüklendi, panel birkaç saniye içinde indirmeye başlayacak…";toast("Güncelleme komutu gönderildi")}
+  catch(e){toast("Yüklenemedi: "+fbErrTxt(e));$("otaProg").textContent="Hata: "+fbErrTxt(e)}
+  b.disabled=false};
+function otaRender(){const o=fbStat&&fbStat.ota;if(!o||!FBM)return;
+  const when=o.at?new Date(o.at).toLocaleString("tr-TR"):"";
+  $("otaProg").textContent=`Panel: ${o.st}${o.st==="indiriliyor"?" %"+o.pct:""} · ${o.ver||""} · ${when}`}
+
 /* ---------- Firebase (uzaktan kontrol) ---------- */
 let fdb=null,fbLastSave=0,fbSrvOff=0,fbStat=null;
 const fbNow=()=>Date.now()+fbSrvOff;
@@ -769,7 +818,7 @@ function fbRenderStatus(){const j=fbStat,el=$("devStats");
    ["Yayında",j.ann?esc(j.ann)+" ("+Math.ceil((j.annRem||0)/60)+" dk)":"duyuru yok"],
    ["Nöbetçi",j.duty?esc(j.duty):"bugün yok"],
    ["Parlaklık",Math.round((j.bright||0)/2.55)+"% · LDR "+(j.ldr??"-")],
-   ["Çalışma süresi",fmtUp(j.up||0)],["Yazılım",esc(j.fw||"-")]
+   ["Çalışma süresi",fmtUp(j.up||0)],["Yazılım",esc(j.fw||"-")+(j.ota&&j.ota.st?" · son güncelleme: "+esc(j.ota.st):"")]
   ].map(([k,v])=>`<div class="stat"><b>${k}</b><span>${v}</span></div>`).join("")}
 function fbInit(){
   firebase.initializeApp(window.FB_CFG);fdb=firebase.database();const auth=firebase.auth();
@@ -794,7 +843,8 @@ function fbInit(){
       if(typeof v==="string"||Date.now()-fbLastSave>5000){const c=(await fdb.ref("ledpano/cfg").get()).val();if(c){const a=S.ann;S=cfgToS(c);S.ann=a;renderAll()}}});
     fdb.ref("ledpano/ann").on("value",s=>{const a=s.val();
       S.ann=a&&a.text?{text:a.text,until:(typeof a.at==="number"?a.at:fbNow())+(a.dur||10)*60000,mode:a.mode||"loop",fx:a.fx||"none"}:null;renderAnn();resetPlay()});
-    fdb.ref("ledpano/status").on("value",s=>{fbStat=s.val();fbRenderStatus()});
+    fdb.ref("ledpano/status").on("value",s=>{fbStat=s.val();fbRenderStatus();otaRender()});
+    $("otaNote").textContent="Panel buluta bağlıyken her yerden güncellenebilir.";
     setInterval(fbRenderStatus,15000);
   });
 }
