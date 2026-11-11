@@ -184,7 +184,7 @@ tr.today td{background:var(--accent-soft)}
   <section class="tab" id="tab-pic" hidden>
     <div class="card">
       <h2>Semboller</h2>
-      <p class="muted" style="margin:0">Duyuru, mesaj veya zil metnine sembolün adını süslü parantezle yazınca panelde resim olarak çizilir. Örnek: <span class="mono">{BAYRAK} 29 EKİM CUMHURİYET BAYRAMI KUTLU OLSUN {BAYRAK}</span>. Metin kutularının altındaki sembol düğmeleri bunu senin yerine yazar.</p>
+      <p class="muted" style="margin:0">Duyuru, mesaj veya zil metnine sembolün adını süslü parantezle yazınca panelde resim olarak çizilir. Örnek: <span class="mono">{BAYRAK} 29 EKİM CUMHURİYET BAYRAMI KUTLU OLSUN {BAYRAK}</span>. Mesaja sadece <span class="mono">{BAYRAKTAM}</span> yazarsan bayrak panonun tamamını kaplar ve sabit durur. Metin kutularının altındaki sembol düğmeleri bunu senin yerine yazar.</p>
       <div class="piclist" id="picList"></div>
     </div>
     <div class="card">
@@ -574,9 +574,9 @@ function renderPicChips(){const P=picMap();
 function renderPics(){const P=picMap();
   $("picList").innerHTML="";
   for(const nm of Object.keys(P)){const d=document.createElement("div");d.className="picitem";const cv=document.createElement("canvas");drawPic(cv,P[nm],4);
-    const b=document.createElement("b");b.textContent="{"+nm+"}";const info=document.createElement("span");info.className="muted";info.textContent=P[nm].w+" piksel"+(nm==="BAYRAK"?" · yerleşik":"");
+    const b=document.createElement("b");b.textContent="{"+nm+"}";const info=document.createElement("span");info.className="muted";info.textContent=P[nm].w+" piksel"+(nm==="BAYRAK"?" · yerleşik":nm==="BAYRAKTAM"?" · yerleşik, panonun tamamını kaplar (tek başına yazılınca sabit durur)":"");
     d.append(cv,b,info);
-    if(nm!=="BAYRAK"){const del=document.createElement("button");del.className="btn small";del.textContent="Sil";
+    if(!BUILTIN.includes(nm)){const del=document.createElement("button");del.className="btn small";del.textContent="Sil";
       del.onclick=()=>{S.pics=S.pics.filter(p=>p.name!==nm);save();renderPics();resetPlay()};d.append(del)}
     $("picList").append(d)}
   renderPicChips()}
@@ -595,8 +595,8 @@ $("picFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Im
 ["picW","picTh","picInv"].forEach(id=>$(id).addEventListener("input",picPreview));
 $("picAdd").onclick=()=>{const p=picBits();if(!p)return;
   const nm=trUp($("picName").value).replace(/[^A-ZÇĞİÖŞÜ0-9]/g,"").slice(0,16);
-  if(!nm){toast("Sembole bir ad ver (harf ve rakam)");return}if(nm==="BAYRAK"){toast("BAYRAK adı yerleşik sembolün");return}
-  S.pics=(S.pics||[]).filter(x=>x.name!==nm);if(S.pics.length>=11){toast("En fazla 11 sembol yüklenebilir");return}
+  if(!nm){toast("Sembole bir ad ver (harf ve rakam)");return}if(BUILTIN.includes(nm)){toast(nm+" adı yerleşik sembolün");return}
+  S.pics=(S.pics||[]).filter(x=>x.name!==nm);if(S.pics.length>=10){toast("En fazla 10 sembol yüklenebilir");return}
   S.pics.push({name:nm,w:p.w,d:p.cols.map(c=>c.toString(16).padStart(4,"0")).join("")});
   save();renderPics();resetPlay();$("picInfo").textContent="{"+nm+"} kaydedildi. Metinde {"+nm+"} yazarak kullanabilirsin."};
 /* Milli ve özel günler: bugünden sonraki ilk tarihler */
@@ -629,18 +629,13 @@ function raster(text,fn="F_MAIN"){const key=fn+"|"+text;if(cache.has(key))return
   if(cols.length)cols.pop();const w=cols.length,bits=new Uint8Array(w*H);
   for(let x=0;x<w;x++)for(let y=0;y<H;y++)bits[y*w+x]=(cols[x]>>y)&1;
   const r={w,bits};if(cache.size>200)cache.clear();cache.set(key,r);return r}
-/* Semboller: yerleşik bayrak (Türk Bayrağı Tüzüğü oranları) + kullanıcı resimleri */
-function makeFlag(){const G=16,ox=.5*G,ix=ox+.0625*G,ro=.25*G,ri=.2*G,cy=G/2,sx=ix+G/3+.125*G,sr=.125*G*1.4,cols=[];
-  const vx=[],vy=[];for(let k=0;k<10;k++){const a=Math.PI+k*Math.PI/5,r=k&1?sr*.382:sr;vx.push(sx+r*Math.cos(a));vy.push(cy+r*Math.sin(a))}
-  const inStar=(px,py)=>{let c=false;for(let i=0,j=9;i<10;j=i++)if((vy[i]>py)!==(vy[j]>py)&&px<(vx[j]-vx[i])*(py-vy[i])/(vy[j]-vy[i])+vx[i])c=!c;return c};
-  for(let x=0;x<24;x++){let c=0;for(let y=0;y<16;y++){let w=0;
-    for(let a=0;a<4;a++)for(let b=0;b<4;b++){const X=x+(b+.5)/4,Y=y+(a+.5)/4;
-      if(((X-ox)**2+(Y-cy)**2<=ro*ro&&(X-ix)**2+(Y-cy)**2>ri*ri)||inStar(X,Y))w++}
-    if(w<6)c|=1<<y}cols.push(c)}return{w:24,cols}}
-const FLAG=makeFlag();
+/* Semboller: yerleşik bayraklar. Ay-yıldız Türk Bayrağı Tüzüğü oranlarıyla G=28 ölçeğinde (firmware ile aynı desen) */
+const FLAG={w:42,cols:[65535,65535,65535,65535,65535,65535,65535,65407,63503,61447,57347,50145,53241,53241,40956,57341,57341,57341,65535,65535,65535,65535,65407,65087,65087,65087,64543,32768,49153,61447,63503,63503,61447,61575,61895,63479,65535,65535,65535,65535,65535,65535]};
+const FLAGTAM={w:128,cols:[65535,65535,65535,65535,65535,65535,65535,65407,63503,61447,57347,50145,53241,53241,40956,57341,57341,57341,65535,65535,65535,65535,65407,65087,65087,65087,64543,32768,49153,61447,63503,63503,61447,61575,61895,63479,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535]};
+const BUILTIN=["BAYRAK","BAYRAKTAM"];
 let PMAP=null,PKEY="";
-function picMap(){const k=JSON.stringify(S.pics||[]);if(PMAP&&k===PKEY)return PMAP;PKEY=k;PMAP={BAYRAK:FLAG};
-  for(const p of S.pics||[]){const cols=[];for(let i=0;i+4<=p.d.length;i+=4)cols.push(parseInt(p.d.slice(i,i+4),16));if(p.name!=="BAYRAK")PMAP[p.name]={w:cols.length,cols}}
+function picMap(){const k=JSON.stringify(S.pics||[]);if(PMAP&&k===PKEY)return PMAP;PKEY=k;PMAP={BAYRAK:FLAG,BAYRAKTAM:FLAGTAM};
+  for(const p of S.pics||[]){const cols=[];for(let i=0;i+4<=p.d.length;i+=4)cols.push(parseInt(p.d.slice(i,i+4),16));if(!BUILTIN.includes(p.name))PMAP[p.name]={w:cols.length,cols}}
   cache.clear();return PMAP}
 const hm2m=s=>{const[a,b]=String(s||"0:0").split(":").map(Number);return a*60+b};
 function holToday(){const td=iso(nowD());return(S.hol||[]).find(h=>h.from&&h.from<=td&&(h.to||h.from)>=td)}
@@ -741,7 +736,8 @@ function frame(t){const dt=Math.min(0.1,(t-last)/1000);last=t;
       $("layerTxt").textContent=st.phase==="brk"?(st.rem<=st.warn?"Teneffüs · derse az kaldı":BR.sub?"Teneffüs · duyurular (kalan süre altta)":"Teneffüs · geri sayım"):"Ders başladı · flaş uyarısı"}}
   else if(cur.clock){const c=clockText(),bm=raster(c,fitFont(c));blit(buf,bm,Math.floor((W-bm.w)/2));if(t-stamp>S.set.clock*1000)cur=null}
   else{const big=raster(cur.text,"F_LARGE"),mid=raster(cur.text);
-    const stat=cur.layer===2&&(big.w<=W||mid.w<=W),bm=stat?(big.w<=W?big:mid):big;
+    const onlyPics=/^(\s*\{[^}]+\}\s*)+$/.test(cur.text)&&cur.text.match(/\{([^}]+)\}/g).every(t=>picMap()[t.slice(1,-1)]);
+    const stat=(cur.layer===2&&(big.w<=W||mid.w<=W))||(onlyPics&&big.w<=W),bm=stat?(big.w<=W?big:mid):big;
     if(stat){blit(buf,bm,Math.floor((W-bm.w)/2));if(t-stamp>6000)cur=null}
     else{pos-=S.set.speed*dt;blit(buf,bm,Math.round(pos));if(pos<-bm.w)cur=null}
     applyFx(buf,cur&&cur.fx,age)}
