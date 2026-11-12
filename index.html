@@ -377,10 +377,18 @@ function save(){
 
 /* ---------- Saat/tarih çarkı: çevirirken değil, kapatınca (Onay/Bitti) kaydet ---------- */
 const isTD=el=>el&&el.tagName==="INPUT"&&(el.type==="time"||el.type==="date");
-document.addEventListener("change",e=>{const el=e.target;      // çark açıkken gelen ara değerleri beklet
-  if(isTD(el)&&!e._ok&&document.activeElement===el){e.stopImmediatePropagation();el._pend=true}},true);
-document.addEventListener("focusout",e=>{const el=e.target;if(!isTD(el)||!el._pend)return;el._pend=false;
-  const ev=new Event("change",{bubbles:true});ev._ok=true;el.dispatchEvent(ev)},true);
+/* Çark dönerken gelen ara değerler 1,5 sn bekletilir; son değer 1,5 sn sabit kalınca, kutudan çıkınca
+   ya da sayfa kapanırken kaydedilir. (Android'de Onay'dan sonra imleç kutuda kaldığı için sadece
+   "kutudan çıkınca" beklemek değişikliği hiç kaydetmiyordu.) */
+const tdPend=new Set();
+function tdCommit(el){if(!el._pend)return;el._pend=false;clearTimeout(el._tm);tdPend.delete(el);
+  const ev=new Event("change",{bubbles:true});ev._ok=true;el.dispatchEvent(ev)}
+document.addEventListener("change",e=>{const el=e.target;
+  if(isTD(el)&&!e._ok&&document.activeElement===el){e.stopImmediatePropagation();el._pend=true;tdPend.add(el);
+    clearTimeout(el._tm);el._tm=setTimeout(()=>tdCommit(el),1500)}},true);
+document.addEventListener("focusout",e=>{if(isTD(e.target))tdCommit(e.target)},true);
+addEventListener("pagehide",()=>{for(const el of [...tdPend])tdCommit(el);if(FBM&&saveTimer){clearTimeout(saveTimer);fbSaveCfg()}});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"){for(const el of [...tdPend])tdCommit(el);if(FBM&&saveTimer){clearTimeout(saveTimer);saveTimer=0;fbSaveCfg()}}});
 
 /* ---------- Sekmeler ---------- */
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
@@ -788,7 +796,7 @@ const fbNow=()=>Date.now()+fbSrvOff;
 function cfgToS(c){c=c||{};return{bells:c.bells||[],msgs:(c.msgs||[]).map(m=>({on:m.on!==false,text:m.text||"",from:m.from||"",to:m.to||"",fx:m.fx||"none"})),
   duty:(c.duty||[]).map(r=>({date:r.date,t:r.t||"",s1:r.s1||"",s2:r.s2||""})),dutyFmt:c.dutyFmt||"full",
   hol:Array.isArray(c.hol)?c.hol.map(h=>({name:h.name||"",from:h.from||"",to:h.to||""})):c.hol===false?[]:HOL_MEB.map(h=>({...h})),pics:Array.isArray(c.pics)?c.pics.map(p=>({name:p.name,w:p.w,d:p.d})):[],set:{...SET_DEF,...(c.set||{})},ann:S.ann}}
-async function fbSaveCfg(){const TS=firebase.database.ServerValue.TIMESTAMP;
+async function fbSaveCfg(){saveTimer=null;const TS=firebase.database.ServerValue.TIMESTAMP;
   try{await fdb.ref("ledpano/cfg").set(cfgPayload());fbLastSave=Date.now();await fdb.ref("ledpano/rev/cfg").set(TS);toast("Kaydedildi · panel birkaç saniye içinde alır")}
   catch(e){toast("Kaydedilemedi: "+fbErrTxt(e))}}
 async function fbAnn(a){const TS=firebase.database.ServerValue.TIMESTAMP;
