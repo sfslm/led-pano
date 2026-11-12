@@ -387,8 +387,13 @@ document.addEventListener("change",e=>{const el=e.target;
   if(isTD(el)&&!e._ok&&document.activeElement===el){e.stopImmediatePropagation();el._pend=true;tdPend.add(el);
     clearTimeout(el._tm);el._tm=setTimeout(()=>tdCommit(el),1500)}},true);
 document.addEventListener("focusout",e=>{if(isTD(e.target))tdCommit(e.target)},true);
-addEventListener("pagehide",()=>{for(const el of [...tdPend])tdCommit(el);if(FBM&&saveTimer){clearTimeout(saveTimer);fbSaveCfg()}});
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"){for(const el of [...tdPend])tdCommit(el);if(FBM&&saveTimer){clearTimeout(saveTimer);saveTimer=0;fbSaveCfg()}}});
+// Uygulamadan çıkınca / sekme değişince: açık kutudaki yazıyı da kaydet, bekleyen kaydı hemen gönder
+function flushAll(){const a=document.activeElement;
+  if(a&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT")&&a.id!=="annText")a.blur();
+  for(const el of [...tdPend])tdCommit(el);
+  if(FBM&&saveTimer){clearTimeout(saveTimer);fbSaveCfg()}}
+addEventListener("pagehide",flushAll);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flushAll()});
 
 /* ---------- Sekmeler ---------- */
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
